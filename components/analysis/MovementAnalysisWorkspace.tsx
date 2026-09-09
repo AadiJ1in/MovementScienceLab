@@ -257,30 +257,32 @@ export function MovementAnalysisWorkspace() {
   const sessionTrend = [...historicalTrend, ...currentSessionTrend];
   const displayedRuleCount = isRecording ? activeRulesRef.current.length : rules.length;
 
+  const videoOverlay = (
+    <div className="max-w-[180px] rounded-xl bg-black/75 px-3 py-2 text-right text-white backdrop-blur sm:max-w-none sm:px-4 sm:py-3 sm:text-left">
+      <p className="text-[9px] uppercase tracking-[0.16em] text-white/60 sm:text-[10px]">Live angle</p>
+      <p className="mt-0.5 truncate text-xs font-medium sm:text-sm">{selectedAngle}</p>
+      <p className="text-xl font-semibold tabular-nums sm:text-2xl">
+        {liveSelected ? `${liveSelected.value.toFixed(1)}°` : "—"}
+      </p>
+      <p className="hidden text-xs text-white/60 sm:block">
+        {liveSelected
+          ? `confidence ${liveSelected.confidence.toFixed(2)}`
+          : "insufficient keypoint confidence"}
+      </p>
+    </div>
+  );
+
   return (
     <div className="space-y-8">
       <AuthPanel onUserChange={userChange} />
       <RuleConfigurationPanel rules={rules} onRulesChange={setRules} disabled={isRecording} />
 
-      <div className="relative">
-        <PoseCapture
-          onFrame={handleFrame}
-          onMovementChange={setMovement}
-          movementLocked={isRecording}
-        />
-        <div className="pointer-events-none absolute right-[380px] top-4 hidden rounded-xl bg-black/75 px-4 py-3 text-white backdrop-blur lg:block">
-          <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">Live angle</p>
-          <p className="mt-1 text-sm font-medium">{selectedAngle}</p>
-          <p className="text-2xl font-semibold tabular-nums">
-            {liveSelected ? `${liveSelected.value.toFixed(1)}°` : "—"}
-          </p>
-          <p className="text-xs text-white/60">
-            {liveSelected
-              ? `confidence ${liveSelected.confidence.toFixed(2)}`
-              : "insufficient keypoint confidence"}
-          </p>
-        </div>
-      </div>
+      <PoseCapture
+        onFrame={handleFrame}
+        onMovementChange={setMovement}
+        movementLocked={isRecording}
+        videoOverlay={videoOverlay}
+      />
 
       <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
