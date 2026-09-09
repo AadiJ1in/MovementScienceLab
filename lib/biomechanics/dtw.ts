@@ -42,6 +42,27 @@ export function dynamicTimeWarping(
   };
 }
 
+export type FormDeviationScore = {
+  angleName: string;
+  normalizedDistance: number;
+  pathLength: number;
+  comparedSamples: number;
+};
+
+/**
+ * Produces an explainable similarity/deviation score without classifying it as
+ * good/bad. Lower values mean the angle trajectory is closer to the supplied
+ * reference trajectory under DTW. This is not injury prediction or diagnosis.
+ */
+export function scoreRepAgainstReference(
+  angleName: string,
+  sample: number[],
+  reference: number[],
+): FormDeviationScore {
+  const result = dynamicTimeWarping(sample, reference);
+  return { angleName, ...result };
+}
+
 export type FormDeviationResult = {
   angleName: string;
   normalizedDistance: number;
