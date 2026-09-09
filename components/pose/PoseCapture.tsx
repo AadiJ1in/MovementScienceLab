@@ -6,7 +6,7 @@ import {
   PoseLandmarker,
   type PoseLandmarkerResult,
 } from "@mediapipe/tasks-vision";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   evaluateCameraGuidance,
   KEYPOINT_VISIBILITY_THRESHOLD,
@@ -31,12 +31,14 @@ type PoseCaptureProps = {
   onFrame?: (frame: PoseFrame | null) => void;
   onMovementChange?: (movement: MovementType) => void;
   movementLocked?: boolean;
+  videoOverlay?: ReactNode;
 };
 
 export function PoseCapture({
   onFrame,
   onMovementChange,
   movementLocked = false,
+  videoOverlay,
 }: PoseCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -216,6 +218,12 @@ export function PoseCapture({
               (poseFrame ? `${poseFrame.trustedKeypointCount}/33 trusted` : "Finding pose…")}
             {status === "error" && "Camera unavailable"}
           </div>
+
+          {videoOverlay && (
+            <div className="pointer-events-none absolute right-4 top-4 z-10">
+              {videoOverlay}
+            </div>
+          )}
         </div>
       </div>
 
