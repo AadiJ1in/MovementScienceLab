@@ -3,8 +3,10 @@ import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
 import {
   collapseMovementFlags,
   type MovementFlag,
+  type MovementRule,
 } from "@/lib/biomechanics/risk-rules";
 import type { PersistableRepSummary } from "@/lib/biomechanics/session-aggregation";
+import type { MovementType } from "@/lib/pose/types";
 
 const INSERT_CHUNK_SIZE = 500;
 
@@ -19,14 +21,40 @@ async function insertInChunks(
   }
 }
 
+export type SessionProtocol = {
+  userId: string;
+  captureMode: MovementType;
+  rules: MovementRule[];
+  keypointVisibilityThreshold: number;
+  storageIntervalMs: number;
+};
+
 export async function createMovementSession(
   supabase: SupabaseClient,
-  userId: string,
-  exerciseId?: string,
+  protocol: SessionProtocol,
 ) {
+  const { data: exercise } = await supabase
+    .from("exercises")
+    .select("id")
+    .eq("slug", protocol.captureMode)
+    .maybeSingle();
+
+  const analysisConfig = {
+    keypointVisibilityThreshold: protocol.keypointVisibilityThreshold,
+    storageIntervalMs: protocol.storageIntervalMs,
+    rules: protocol.rules,
+  };
+
   const { data, error } = await supabase
     .from("movement_sessions")
-    .insert({ user_id: userId, exercise_id: exerciseId ?? null, status: "recording" })
+    .insert({
+      user_id: protocol.userId,
+      exercise_id: exercise?.id ?? null,
+      capture_mode: protocol.captureMode,
+      analysis_config: analysisConfig,
+      measurement_version: "mediapipe-2d-v1",
+      status: "recording",
+    })
     .select("id")
     .single();
   if (error) throw error;
