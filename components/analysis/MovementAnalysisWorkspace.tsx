@@ -117,7 +117,9 @@ export function MovementAnalysisWorkspace() {
     let frameRepIndex: number | undefined;
     const segmenter = segmenterRef.current;
     if (segmenter) {
-      const signal = normalized.find((reading) => reading.angleName === selectedRepSignal(segmenter, normalized));
+      const signal = normalized.find(
+        (reading) => reading.angleName === segmenter.signalAngleName,
+      );
       if (signal) {
         const before = segmenter.activeRepIndex ?? undefined;
         const completed = segmenter.ingest(signal);
@@ -285,13 +287,4 @@ export function MovementAnalysisWorkspace() {
       </section>
     </div>
   );
-}
-
-function selectedRepSignal(segmenter: RepSegmenter, readings: AngleReading[]): AngleName {
-  const active = readings
-    .filter((reading) => reading.angleName === "leftKneeFlexion" || reading.angleName === "rightKneeFlexion")
-    .sort((a, b) => b.confidence - a.confidence)[0];
-  // Once the segmenter is active, its ingest() ignores readings for the other side.
-  // Returning the best currently visible knee keeps the helper simple while preserving that guard.
-  return active?.angleName ?? "leftKneeFlexion";
 }
