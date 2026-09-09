@@ -113,8 +113,9 @@ export async function loadAngleTrend(
 ): Promise<TrendPoint[]> {
   let query = supabase
     .from("movement_sessions")
-    .select("id, started_at, angle_samples(value_degrees, angle_name)")
+    .select("id, started_at, angle_samples!inner(value_degrees, angle_name)")
     .eq("status", "complete")
+    .eq("angle_samples.angle_name", angleName)
     .order("started_at", { ascending: false })
     .limit(limit);
 
@@ -129,9 +130,7 @@ export async function loadAngleTrend(
         value_degrees: number;
         angle_name: string;
       }>;
-      const values = samples
-        .filter((sample) => sample.angle_name === angleName)
-        .map((sample) => Math.abs(Number(sample.value_degrees)));
+      const values = samples.map((sample) => Math.abs(Number(sample.value_degrees)));
       if (!values.length) return null;
       return {
         sessionLabel: new Date(session.started_at as string).toLocaleDateString(),
