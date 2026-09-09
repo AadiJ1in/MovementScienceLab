@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
 import { compareRepToReference, scoreRepAgainstReference } from "@/lib/biomechanics/dtw";
 
@@ -20,6 +20,11 @@ export function ReferenceComparisonPanel({
 }) {
   const [reference, setReference] = useState<ReferenceTrajectoryFile | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReference(null);
+    setMessage(null);
+  }, [angleName]);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
