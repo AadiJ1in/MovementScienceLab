@@ -8,6 +8,7 @@ import { RuleConfigurationPanel } from "./RuleConfigurationPanel";
 import { ReferenceComparisonPanel } from "./ReferenceComparisonPanel";
 import { computeAnglesForFrame, type AngleName, type AngleReading } from "@/lib/biomechanics/angles";
 import {
+  collapseMovementFlags,
   DEFAULT_MOVEMENT_RULES,
   evaluateMovementRules,
   type MovementFlag,
@@ -19,7 +20,8 @@ import {
   type RepSummary,
 } from "@/lib/biomechanics/rep-segmentation";
 import { aggregateReps } from "@/lib/biomechanics/session-aggregation";
-import type { PoseFrame } from "@/lib/pose/types";
+import { KEYPOINT_VISIBILITY_THRESHOLD } from "@/lib/pose/camera-guidance";
+import type { MovementType, PoseFrame } from "@/lib/pose/types";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import {
   completeMovementSession,
@@ -53,6 +55,7 @@ export function MovementAnalysisWorkspace() {
   const [reps, setReps] = useState<RepSummary[]>([]);
   const [live, setLive] = useState<AngleReading[]>([]);
   const [selectedAngle, setSelectedAngle] = useState<AngleName>("leftKneeFlexion");
+  const [movement, setMovement] = useState<MovementType>("squat-front");
   const [user, setUser] = useState<User | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [persistenceStatus, setPersistenceStatus] = useState<string>("Local session not started.");
@@ -61,6 +64,7 @@ export function MovementAnalysisWorkspace() {
   const firstTimestampRef = useRef<number | null>(null);
   const segmenterRef = useRef<RepSegmenter | null>(null);
   const recordingRef = useRef(false);
+  const activeRulesRef = useRef<MovementRule[]>([]);
   const storageReadingsRef = useRef<AngleReading[]>([]);
   const storageBucketRef = useRef<Map<AngleName, number>>(new Map());
   const userChange = useCallback((nextUser: User | null) => setUser(nextUser), []);
@@ -144,12 +148,18 @@ export function MovementAnalysisWorkspace() {
       }
     }
 
-    const nextFlags = evaluateMovementRules(normalized, rules, frameRepIndex);
+    const nextFlags = evaluateMovementRules(
+      normalized,
+      activeRulesRef.current,
+      frameRepIndex,
+    );
     setReadings((current) => [...current, ...normalized].slice(-MAX_LIVE_POINTS));
     if (nextFlags.length) setFlags((current) => [...current, ...nextFlags]);
   }
 
   async function startRecording() {
+    const protocolRules = rules.map((rule) => ({ ...rule }));
+    activeRulesRef.current = protocolRules;
     firstTimestampRef.current = null;
     segmenterRef.current = null;
     storageReadingsRef.current = [];
@@ -161,7 +171,9 @@ export function MovementAnalysisWorkspace() {
     setIsRecording(true);
 
     if (!hasSupabaseConfig()) {
-      setPersistenceStatus("Recording locally; Supabase is not configured.");
+      setPersistenceStatus(
+        `Recording locally with ${protocolRules.length} sourced rules; Supabase is not configured.`,
+      );
       return;
     }
     if (!user) {
@@ -170,9 +182,17 @@ export function MovementAnalysisWorkspace() {
     }
 
     try {
-      const id = await createMovementSession(createBrowserSupabaseClient(), user.id);
+      const id = await createMovementSession(createBrowserSupabaseClient(), {
+        userId: user.id,
+        captureMode: movement,
+        rules: protocolRules,
+        keypointVisibilityThreshold: KEYPOINT_VISIBILITY_THRESHOLD,
+        storageIntervalMs: STORAGE_INTERVAL_MS,
+      });
       setSessionId(id);
-      setPersistenceStatus("Recording; database session created.");
+      setPersistenceStatus(
+        `Recording ${movement}; database session created with ${protocolRules.length} sourced rules snapshotted.`,
+      );
     } catch (error) {
       setPersistenceStatus(
         `Recording locally; database session could not be created: ${error instanceof Error ? error.message : "unknown error"}`,
@@ -194,12 +214,13 @@ export function MovementAnalysisWorkspace() {
       const supabase = createBrowserSupabaseClient();
       const sampled = storageReadingsRef.current;
       const repAggregates = aggregateReps(reps, sampled);
+      const persistedFlags = collapseMovementFlags(flags);
       await saveAngleSamples(supabase, sessionId, sampled);
       await saveRepSummaries(supabase, sessionId, repAggregates);
-      await saveMovementFlags(supabase, sessionId, flags);
+      await saveMovementFlags(supabase, sessionId, persistedFlags);
       await completeMovementSession(supabase, sessionId);
       setPersistenceStatus(
-        `Saved ${repAggregates.length} reps, ${sampled.length} downsampled angle samples, and ${flags.length} sourced flags.`,
+        `Saved ${repAggregates.length} reps, ${sampled.length} downsampled angle samples, and ${persistedFlags.length} explainable flags.`,
       );
       await refreshTrend();
     } catch (error) {
@@ -234,14 +255,19 @@ export function MovementAnalysisWorkspace() {
     return [{ sessionLabel: "Current", value: Number(max.toFixed(2)) }];
   }, [selectedReadings]);
   const sessionTrend = [...historicalTrend, ...currentSessionTrend];
+  const displayedRuleCount = isRecording ? activeRulesRef.current.length : rules.length;
 
   return (
     <div className="space-y-8">
       <AuthPanel onUserChange={userChange} />
-      <RuleConfigurationPanel rules={rules} onRulesChange={setRules} />
+      <RuleConfigurationPanel rules={rules} onRulesChange={setRules} disabled={isRecording} />
 
       <div className="relative">
-        <PoseCapture onFrame={handleFrame} />
+        <PoseCapture
+          onFrame={handleFrame}
+          onMovementChange={setMovement}
+          movementLocked={isRecording}
+        />
         <div className="pointer-events-none absolute right-[380px] top-4 hidden rounded-xl bg-black/75 px-4 py-3 text-white backdrop-blur lg:block">
           <p className="text-[10px] uppercase tracking-[0.18em] text-white/60">Live angle</p>
           <p className="mt-1 text-sm font-medium">{selectedAngle}</p>
@@ -261,7 +287,9 @@ export function MovementAnalysisWorkspace() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Session capture</p>
             <h2 className="mt-1 text-xl font-semibold text-zinc-950">Movement-quality analysis</h2>
-            <p className="mt-1 text-sm text-zinc-500">Detected reps: {reps.length}</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              {movement} · Detected reps: {reps.length}
+            </p>
           </div>
           {!isRecording ? (
             <button onClick={startRecording} className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white">Start recording</button>
@@ -284,9 +312,9 @@ export function MovementAnalysisWorkspace() {
             {ANGLES.map((name) => <option key={name}>{name}</option>)}
           </select>
           <span className="text-xs text-zinc-500">
-            {rules.length === 0
+            {displayedRuleCount === 0
               ? "No literature thresholds configured; biomechanical flags are disabled."
-              : `${rules.length} sourced rules active.`}
+              : `${displayedRuleCount} sourced rules active for this ${isRecording ? "recording" : "configuration"}.`}
           </span>
         </div>
 
