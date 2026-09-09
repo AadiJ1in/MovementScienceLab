@@ -4,16 +4,16 @@ Webcam-based movement-quality analysis research platform built with Next.js, Rea
 
 ## Clinical framing
 
-This project does **not** predict injuries and is not a diagnostic system. It reports movement-quality measurements, form-deviation comparisons, and explainable biomechanical flags. Single-camera outputs must not be marketed as true 3D joint loading or clinical diagnosis.
+This project does **not** predict injuries and is not a diagnostic system. It reports movement-quality measurements, form-deviation comparisons, and explainable biomechanical flags. Single-camera outputs must not be marketed as true 3D joint loading, diagnosis, or validated injury probability.
 
 ## Stage 1 — Pose capture
 
 - MediaPipe Pose Landmarker runs client-side through WASM/JS.
 - Webcam capture produces 33 landmarks per valid pose frame.
 - Every landmark preserves `x`, `y`, `z`, `visibility`, and a `trusted` flag.
-- `KEYPOINT_VISIBILITY_THRESHOLD` is currently `0.7` as an engineering quality gate, not a clinical threshold.
+- `KEYPOINT_VISIBILITY_THRESHOLD` is `0.7` as an engineering quality gate, not a clinical threshold.
 - Front/side camera-guidance modes reject obviously poor framing and low landmark visibility.
-- Camera guidance cannot prove exact body-to-camera alignment.
+- Camera guidance cannot prove exact body-to-camera alignment or recover true 3D biomechanics.
 
 ## Stage 2 — Joint-angle utilities
 
@@ -27,13 +27,53 @@ This project does **not** predict injuries and is not a diagnostic system. It re
 
 Each output has `{ frameTimestamp, angleName, value, confidence }`. Confidence is the minimum visibility among landmarks used in the measurement. If a required landmark is untrusted, that angle is not emitted.
 
-Important: BlazePose does not expose ASIS/PSIS landmarks, so true anterior/posterior pelvic tilt is not claimed. The current pelvic metric is explicitly a 2D pelvic-line/obliquity proxy. Likewise frontal knee deviation is a 2D projection proxy, not a diagnosis of valgus/varus pathology.
+BlazePose does not expose ASIS/PSIS landmarks, so true anterior/posterior pelvic tilt is not claimed. The pelvic metric is explicitly a 2D pelvic-line/obliquity proxy. Frontal knee deviation is also a 2D projection proxy, not a diagnosis of valgus/varus pathology.
 
-## Stage 3 — Explainable rule engine
+## Rep segmentation
 
-`lib/biomechanics/risk-rules.ts` implements sourced threshold rules and produces explainable flags containing measured value, threshold exceedance, severity, timestamp/rep, and source metadata.
+`lib/biomechanics/rep-segmentation.ts` detects a flexion/return cycle with hysteresis and minimum excursion. Its degree deltas are **signal-processing parameters**, not safe ROM thresholds. The detector locks onto one knee signal for the session rather than switching sides as pose confidence fluctuates.
 
-`DEFAULT_MOVEMENT_RULES` is intentionally empty. No biomechanical safe-range values are invented in the repository. Add only thresholds supported by literature or a clinician-approved protocol.
+Completed rep windows are used to:
+
+- attach rule flags to rep numbers
+- build per-rep angle aggregates
+- select a completed rep for reference-form comparison
+
+## Stage 3 — Explainable movement-quality rules
+
+`lib/biomechanics/risk-rules.ts` supports:
+
+- `greaterThan`
+- `absoluteGreaterThan`
+- `lessThan`
+- `outsideRange`
+
+The app reports measured value, threshold exceedance, severity, timestamp, rep number when available, and source metadata. For storage, repeated crossings are collapsed to the worst exceedance for each rule/rep pair.
+
+`DEFAULT_MOVEMENT_RULES` is intentionally empty. **No biomechanical safe-range values are invented in this repository.**
+
+### Importing sourced rules
+
+The UI accepts a JSON array. Every rule must include `sourceLabel` and `sourceUrl`; otherwise it is rejected.
+
+Structure:
+
+```json
+[
+  {
+    "id": "your-rule-id",
+    "angleName": "trunkLean",
+    "label": "Your literature-defined movement indicator",
+    "comparator": "absoluteGreaterThan",
+    "threshold": 0,
+    "severity": "caution",
+    "sourceLabel": "Replace with the actual paper/protocol citation",
+    "sourceUrl": "https://replace-with-real-source.example"
+  }
+]
+```
+
+The `0` above is only a schema placeholder and is **not** a recommended biomechanical threshold. Replace the entire example with values from reviewed literature or a clinician-approved protocol before activating it.
 
 ## Stage 4 — Supabase data model
 
@@ -49,35 +89,75 @@ Migrations in `supabase/migrations` create:
 
 RLS is enabled on every user-data table. Patients own writes to their movement data; clinicians receive read access only through an explicit patient grant.
 
-### Storage recommendation
+Authorization-sensitive `profiles.role` cannot be changed by the browser client. Client profile updates are limited to `display_name`; clinician promotion must use a trusted administrative/server path.
 
-Use **rep/session aggregates as the durable default** for production analytics, and persist per-frame angle samples only when they are needed for chart replay, debugging, or research. Raw webcam frames are not part of the schema.
+### Storage strategy
 
-For longer sessions, downsample or batch angle samples before persistence rather than storing every render-loop frame indefinitely. `lib/supabase/movement-data.ts` provides persistence helpers.
+The application keeps two representations:
+
+1. **Rep summaries** as the durable compact unit for analytics.
+2. **Angle traces downsampled to 10 Hz** for chart replay and research/debugging.
+
+The app does not persist raw webcam images or raw video. The live chart has a bounded display buffer, while the 10 Hz persistence buffer continues for the full recording so longer sessions are not truncated.
 
 ## Stage 5 — Reference-form comparison
 
-`lib/biomechanics/dtw.ts` provides Dynamic Time Warping (DTW) against labeled reference angle trajectories.
+`lib/biomechanics/dtw.ts` provides Dynamic Time Warping against a labeled reference angle trajectory.
 
-DTW was chosen as the initial explainable baseline because it:
+DTW is the explainable baseline because it:
 
-- handles reps performed at different speeds
+- tolerates different movement speeds
 - produces a transparent distance from a reference trajectory
-- does not require a trained black-box model
+- requires no black-box model
+- can be inspected angle-by-angle
 
-A lightweight classifier can later be compared against DTW when a sufficiently representative labeled dataset exists. Any classifier would still be a **form-deviation classifier**, not injury prediction.
+The UI can import a reference JSON object:
 
-The DTW deviation boundary is caller-supplied and must be validated against labeled data; no default boundary is invented.
+```json
+{
+  "angleName": "leftKneeFlexion",
+  "values": [0, 10, 20, 30, 20, 10, 0],
+  "sourceLabel": "Replace with the actual validated reference source"
+}
+```
 
-## Stage 6 — Visualization
+These numbers are only a file-format illustration, **not a good-form template**.
 
-`components/analysis/MovementAnalysisWorkspace.tsx` and `AngleCharts.tsx` provide:
+Without a validated boundary, the app displays only the normalized DTW deviation score. If a `deviationBoundary` is supplied, the UI can classify the trajectory as closer-to-reference or more-deviant-from-reference, but that boundary must be validated on labeled movement data.
 
-- live angle readout during webcam capture
-- start/stop in-browser session recording
+A future lightweight classifier can be compared with DTW once a representative labeled dataset exists. It would still be a **form-deviation classifier**, not injury prediction.
+
+## Stage 6 — Visualization and history
+
+The analysis workspace provides:
+
+- live webcam pose/skeleton display
+- live selected-angle readout over the capture area
+- recording controls
+- rep count
 - angle-over-time chart
-- highlighted rule-flag timestamps when sourced rules are configured
-- current-session aggregate trend component designed to accept prior Supabase session aggregates
+- highlighted rule-flag timestamps
+- sourced flag explanations
+- DTW reference-form comparison
+- authenticated session persistence
+- historical angle trend across recent completed sessions
+
+Trend values are descriptive movement measurements. A longitudinal drift must not be presented as evidence that an injury will occur.
+
+## Supabase setup
+
+Copy `.env.example` to `.env.local` and set:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+A legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as a fallback, but new deployments should prefer a publishable key. Never expose a Supabase secret/service-role key to the browser.
+
+Apply the SQL migrations in order to the Supabase project used by this application. This repository does **not** automatically modify the existing Axion production database.
+
+For passwordless email sign-in, add the local and deployed application URLs to the allowed Supabase Auth redirect URLs.
 
 ## Run locally
 
@@ -87,23 +167,29 @@ npm run test
 npm run dev
 ```
 
-Then open `http://localhost:3000` and allow camera access. Browser camera APIs require localhost or HTTPS in production.
+Then open `http://localhost:3000` and allow camera access. Browser camera APIs require localhost or HTTPS.
 
-## Supabase environment
+## Vercel deployment
 
-Set:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-```
-
-Then apply the SQL migrations in `supabase/migrations` to your Supabase project.
+1. Import `AadiJ1in/MovementScienceLab` into Vercel.
+2. Add the two public Supabase environment variables above.
+3. Deploy with the standard Next.js preset.
+4. Add the deployed Vercel URL to Supabase Auth redirect URLs if persistence/auth is enabled.
+5. Test webcam permission, landmark confidence gating, recording, persistence, and RLS with separate patient/clinician accounts before any pilot use.
 
 ## Verification
 
-CI runs unit tests, ESLint, and the Next.js production build on pushes and pull requests.
+CI runs:
+
+```bash
+npm install
+npm run test
+npm run lint
+npm run build
+```
+
+The test suite covers angle math, confidence rejection, DTW, rep segmentation, session aggregation, rule evaluation, external rule validation, absolute signed metrics, and per-rep flag collapsing.
 
 ## Single-camera limitations
 
-Results remain sensitive to camera alignment, occlusion, lens distortion, body rotation, clothing, and motion outside the image plane. 2D webcam measurements can support movement-quality feedback and research prototypes but must not be presented as diagnostic measurements or validated injury-risk probabilities without appropriate validation and outcome data.
+Results remain sensitive to camera alignment, occlusion, lens distortion, body rotation, clothing, and motion outside the image plane. 2D webcam measurements can support movement-quality feedback and research prototypes but must not be represented as diagnostic measurements, true 3D kinetics/kinematics, or validated injury-risk probabilities without appropriate validation and longitudinal outcome data.
