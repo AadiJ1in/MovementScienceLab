@@ -54,26 +54,24 @@ The app reports measured value, threshold exceedance, severity, timestamp, rep n
 
 ### Importing sourced rules
 
-The UI accepts a JSON array. Every rule must include `sourceLabel` and `sourceUrl`; otherwise it is rejected.
+The UI accepts a JSON array. Every rule must include `sourceLabel` and `sourceUrl`; otherwise it is rejected. The file shape is:
 
-Structure:
-
-```json
-[
-  {
-    "id": "your-rule-id",
-    "angleName": "trunkLean",
-    "label": "Your literature-defined movement indicator",
-    "comparator": "absoluteGreaterThan",
-    "threshold": 0,
-    "severity": "caution",
-    "sourceLabel": "Replace with the actual paper/protocol citation",
-    "sourceUrl": "https://replace-with-real-source.example"
-  }
-]
+```ts
+{
+  id: string;
+  angleName: AngleName;
+  label: string;
+  comparator: "greaterThan" | "absoluteGreaterThan" | "lessThan" | "outsideRange";
+  threshold?: number; // supplied from the actual source
+  min?: number;       // supplied from the actual source
+  max?: number;       // supplied from the actual source
+  severity: "info" | "caution" | "high";
+  sourceLabel: string;
+  sourceUrl: string;
+}
 ```
 
-The `0` above is only a schema placeholder and is **not** a recommended biomechanical threshold. Replace the entire example with values from reviewed literature or a clinician-approved protocol before activating it.
+The repository deliberately contains no example biomechanical cutoff values. Supply only values from reviewed literature or a clinician-approved protocol.
 
 ## Stage 4 — Supabase data model
 
@@ -111,17 +109,18 @@ DTW is the explainable baseline because it:
 - requires no black-box model
 - can be inspected angle-by-angle
 
-The UI can import a reference JSON object:
+The UI accepts a reference object shaped as:
 
-```json
+```ts
 {
-  "angleName": "leftKneeFlexion",
-  "values": [0, 10, 20, 30, 20, 10, 0],
-  "sourceLabel": "Replace with the actual validated reference source"
+  angleName: AngleName;
+  values: number[];            // actual labeled reference samples
+  sourceLabel: string;         // provenance for the reference trajectory
+  deviationBoundary?: number; // only when independently validated
 }
 ```
 
-These numbers are only a file-format illustration, **not a good-form template**.
+The repository deliberately contains no fabricated good-form trajectory or default classification boundary.
 
 Without a validated boundary, the app displays only the normalized DTW deviation score. If a `deviationBoundary` is supplied, the UI can classify the trajectory as closer-to-reference or more-deviant-from-reference, but that boundary must be validated on labeled movement data.
 
@@ -155,7 +154,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 
 A legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` is accepted as a fallback, but new deployments should prefer a publishable key. Never expose a Supabase secret/service-role key to the browser.
 
-Apply the SQL migrations in order to the Supabase project used by this application. This repository does **not** automatically modify the existing Axion production database.
+Apply the SQL migrations in order to the Supabase project used by this application. This repository does **not** automatically modify any existing production database.
 
 For passwordless email sign-in, add the local and deployed application URLs to the allowed Supabase Auth redirect URLs.
 
