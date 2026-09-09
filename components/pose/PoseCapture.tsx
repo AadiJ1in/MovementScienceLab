@@ -29,9 +29,15 @@ const MOVEMENTS: MovementType[] = [
 
 type PoseCaptureProps = {
   onFrame?: (frame: PoseFrame | null) => void;
+  onMovementChange?: (movement: MovementType) => void;
+  movementLocked?: boolean;
 };
 
-export function PoseCapture({ onFrame }: PoseCaptureProps) {
+export function PoseCapture({
+  onFrame,
+  onMovementChange,
+  movementLocked = false,
+}: PoseCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -181,6 +187,12 @@ export function PoseCapture({ onFrame }: PoseCaptureProps) {
 
   const config = MOVEMENT_GUIDANCE[movement];
 
+  function changeMovement(nextMovement: MovementType) {
+    if (movementLocked) return;
+    setMovement(nextMovement);
+    onMovementChange?.(nextMovement);
+  }
+
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl">
@@ -219,8 +231,9 @@ export function PoseCapture({ onFrame }: PoseCaptureProps) {
           Capture mode
           <select
             value={movement}
-            onChange={(event) => setMovement(event.target.value as MovementType)}
-            className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-600"
+            disabled={movementLocked}
+            onChange={(event) => changeMovement(event.target.value as MovementType)}
+            className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-600 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-500"
           >
             {MOVEMENTS.map((item) => (
               <option key={item} value={item}>
@@ -228,6 +241,11 @@ export function PoseCapture({ onFrame }: PoseCaptureProps) {
               </option>
             ))}
           </select>
+          {movementLocked && (
+            <span className="mt-1 block text-xs font-normal text-zinc-500">
+              Capture mode is locked until this recording ends.
+            </span>
+          )}
         </label>
 
         <div className="rounded-2xl bg-zinc-100 p-4 text-sm leading-6 text-zinc-700">
