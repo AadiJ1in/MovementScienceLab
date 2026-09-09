@@ -46,6 +46,10 @@ export class RepSegmenter {
     return this.phase === "waiting" ? null : this.nextRepIndex;
   }
 
+  get signalAngleName(): AngleName {
+    return this.config.angleName;
+  }
+
   reset() {
     this.phase = "waiting";
     this.baseline = null;
