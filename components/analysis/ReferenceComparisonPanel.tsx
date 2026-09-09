@@ -20,6 +20,7 @@ export function ReferenceComparisonPanel({
 }) {
   const [reference, setReference] = useState<ReferenceTrajectoryFile | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const referenceMatchesMetric = reference?.angleName === angleName;
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -46,7 +47,7 @@ export function ReferenceComparisonPanel({
   }
 
   const result = useMemo(() => {
-    if (!reference) return null;
+    if (!reference || reference.angleName !== angleName) return null;
     const sample = readings.map((reading) => reading.value);
     if (sample.length < 3) return null;
 
@@ -89,10 +90,15 @@ export function ReferenceComparisonPanel({
         </label>
       </div>
 
-      {reference && (
+      {reference && referenceMatchesMetric && (
         <div className="mt-3 text-xs text-zinc-600">
           Reference: {reference.sourceLabel} · {reference.values.length} samples
         </div>
+      )}
+      {reference && !referenceMatchesMetric && (
+        <p className="mt-3 text-xs text-zinc-600">
+          The previous reference belongs to another metric. Import a reference for {angleName} before comparing.
+        </p>
       )}
       {result && (
         <div className="mt-3 rounded-xl bg-white p-3">
