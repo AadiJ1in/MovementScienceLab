@@ -1,7 +1,11 @@
 import type { AngleName, AngleReading } from "./angles";
 
 export type FlagSeverity = "info" | "caution" | "high";
-export type Comparator = "greaterThan" | "lessThan" | "outsideRange";
+export type Comparator =
+  | "greaterThan"
+  | "absoluteGreaterThan"
+  | "lessThan"
+  | "outsideRange";
 
 export type MovementRule = {
   id: string;
@@ -40,13 +44,24 @@ const ANGLE_NAMES = new Set<AngleName>([
   "leftShoulderElevation",
   "rightShoulderElevation",
 ]);
-const COMPARATORS = new Set<Comparator>(["greaterThan", "lessThan", "outsideRange"]);
+const COMPARATORS = new Set<Comparator>([
+  "greaterThan",
+  "absoluteGreaterThan",
+  "lessThan",
+  "outsideRange",
+]);
 const SEVERITIES = new Set<FlagSeverity>(["info", "caution", "high"]);
 
 function evaluateExcess(reading: AngleReading, rule: MovementRule): number | null {
   if (rule.comparator === "greaterThan") {
     if (rule.threshold === undefined) throw new Error(`Rule ${rule.id} is missing threshold.`);
     return reading.value > rule.threshold ? reading.value - rule.threshold : null;
+  }
+
+  if (rule.comparator === "absoluteGreaterThan") {
+    if (rule.threshold === undefined) throw new Error(`Rule ${rule.id} is missing threshold.`);
+    const magnitude = Math.abs(reading.value);
+    return magnitude > rule.threshold ? magnitude - rule.threshold : null;
   }
 
   if (rule.comparator === "lessThan") {
@@ -92,6 +107,29 @@ export function evaluateMovementRules(
   }
 
   return flags;
+}
+
+/** Keep every unassigned frame flag, but reduce rep-associated flags to the worst
+ * exceedance for each rule/rep pair. */
+export function collapseMovementFlags(flags: MovementFlag[]): MovementFlag[] {
+  const result: MovementFlag[] = [];
+  const repWorst = new Map<string, MovementFlag>();
+
+  for (const flag of flags) {
+    if (flag.repIndex === undefined) {
+      result.push(flag);
+      continue;
+    }
+    const key = `${flag.ruleId}:${flag.repIndex}`;
+    const current = repWorst.get(key);
+    if (!current || flag.excessDegrees > current.excessDegrees) {
+      repWorst.set(key, flag);
+    }
+  }
+
+  return [...result, ...repWorst.values()].sort(
+    (a, b) => a.frameTimestamp - b.frameTimestamp,
+  );
 }
 
 /**
