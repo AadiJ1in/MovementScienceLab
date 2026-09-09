@@ -6,14 +6,16 @@ import { parseMovementRules, type MovementRule } from "@/lib/biomechanics/risk-r
 export function RuleConfigurationPanel({
   rules,
   onRulesChange,
+  disabled = false,
 }: {
   rules: MovementRule[];
   onRulesChange: (rules: MovementRule[]) => void;
+  disabled?: boolean;
 }) {
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleFile(file: File | undefined) {
-    if (!file) return;
+    if (!file || disabled) return;
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
       const validated = parseMovementRules(parsed);
@@ -33,21 +35,23 @@ export function RuleConfigurationPanel({
             Import literature- or protocol-sourced JSON. The loader rejects rules without a source URL and never invents cutoffs.
           </p>
         </div>
-        <label className="cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm">
+        <label className={`rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
           Import JSON
           <input
             type="file"
             accept="application/json,.json"
+            disabled={disabled}
             className="hidden"
             onChange={(event) => void handleFile(event.target.files?.[0])}
           />
         </label>
       </div>
       <div className="mt-3 flex items-center gap-3 text-xs text-zinc-600">
-        <span>{rules.length} active rules</span>
-        {rules.length > 0 && (
+        <span>{rules.length} configured rules</span>
+        {rules.length > 0 && !disabled && (
           <button className="underline" onClick={() => onRulesChange([])}>Disable all</button>
         )}
+        {disabled && <span>Protocol locked for current recording.</span>}
       </div>
       {message && <p className="mt-2 text-xs text-zinc-600">{message}</p>}
     </div>
