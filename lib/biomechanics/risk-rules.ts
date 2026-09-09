@@ -30,6 +30,19 @@ export type MovementFlag = {
   sourceUrl?: string;
 };
 
+const ANGLE_NAMES = new Set<AngleName>([
+  "leftKneeFlexion",
+  "rightKneeFlexion",
+  "leftKneeFrontalDeviation",
+  "rightKneeFrontalDeviation",
+  "trunkLean",
+  "pelvicLineObliquity",
+  "leftShoulderElevation",
+  "rightShoulderElevation",
+]);
+const COMPARATORS = new Set<Comparator>(["greaterThan", "lessThan", "outsideRange"]);
+const SEVERITIES = new Set<FlagSeverity>(["info", "caution", "high"]);
+
 function evaluateExcess(reading: AngleReading, rule: MovementRule): number | null {
   if (rule.comparator === "greaterThan") {
     if (rule.threshold === undefined) throw new Error(`Rule ${rule.id} is missing threshold.`);
@@ -79,6 +92,46 @@ export function evaluateMovementRules(
   }
 
   return flags;
+}
+
+/**
+ * Parse user-supplied rule JSON. Loaded rules must carry a source URL so the app
+ * cannot activate an unexplained biomechanical cutoff by accident.
+ */
+export function parseMovementRules(input: unknown): MovementRule[] {
+  if (!Array.isArray(input)) throw new Error("Rule configuration must be a JSON array.");
+
+  return input.map((candidate, index) => {
+    if (!candidate || typeof candidate !== "object") {
+      throw new Error(`Rule ${index + 1} must be an object.`);
+    }
+    const rule = candidate as Partial<MovementRule>;
+    if (!rule.id || !rule.label || !rule.sourceLabel || !rule.sourceUrl) {
+      throw new Error(`Rule ${index + 1} requires id, label, sourceLabel, and sourceUrl.`);
+    }
+    if (!rule.angleName || !ANGLE_NAMES.has(rule.angleName)) {
+      throw new Error(`Rule ${rule.id} has an unsupported angleName.`);
+    }
+    if (!rule.comparator || !COMPARATORS.has(rule.comparator)) {
+      throw new Error(`Rule ${rule.id} has an unsupported comparator.`);
+    }
+    if (!rule.severity || !SEVERITIES.has(rule.severity)) {
+      throw new Error(`Rule ${rule.id} has an unsupported severity.`);
+    }
+
+    if (rule.comparator === "outsideRange") {
+      if (!Number.isFinite(rule.min) || !Number.isFinite(rule.max)) {
+        throw new Error(`Rule ${rule.id} requires numeric min and max values.`);
+      }
+      if ((rule.min as number) >= (rule.max as number)) {
+        throw new Error(`Rule ${rule.id} requires min < max.`);
+      }
+    } else if (!Number.isFinite(rule.threshold)) {
+      throw new Error(`Rule ${rule.id} requires a numeric threshold.`);
+    }
+
+    return rule as MovementRule;
+  });
 }
 
 /**
