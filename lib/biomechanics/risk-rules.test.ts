@@ -58,7 +58,8 @@ describe("parseMovementRules", () => {
   });
 
   it("rejects a threshold without a source URL", () => {
-    const { sourceUrl: _sourceUrl, ...unsourced } = rule;
+    const unsourced: MovementRule = { ...rule };
+    delete unsourced.sourceUrl;
     expect(() => parseMovementRules([unsourced])).toThrow(/sourceUrl/);
   });
 });
