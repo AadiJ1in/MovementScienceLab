@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
-import type { MovementFlag } from "@/lib/biomechanics/risk-rules";
+import {
+  collapseMovementFlags,
+  type MovementFlag,
+} from "@/lib/biomechanics/risk-rules";
 import type { PersistableRepSummary } from "@/lib/biomechanics/session-aggregation";
 
 const INSERT_CHUNK_SIZE = 500;
@@ -65,7 +68,7 @@ export async function saveMovementFlags(
   sessionId: string,
   flags: MovementFlag[],
 ) {
-  const rows = flags.map((flag) => ({
+  const rows = collapseMovementFlags(flags).map((flag) => ({
     session_id: sessionId,
     rep_index: flag.repIndex ?? null,
     frame_timestamp_ms: flag.frameTimestamp,
