@@ -117,7 +117,8 @@ export function MovementAnalysisWorkspace() {
       }
     }
 
-    if (!segmenterRef.current) {
+    const usesKneeCycleReps = movement === "squat-front" || movement === "squat-side";
+    if (usesKneeCycleReps && !segmenterRef.current) {
       const kneeCandidates = normalized
         .filter(
           (reading) =>
@@ -135,7 +136,7 @@ export function MovementAnalysisWorkspace() {
 
     let frameRepIndex: number | undefined;
     const segmenter = segmenterRef.current;
-    if (segmenter) {
+    if (usesKneeCycleReps && segmenter) {
       const signal = normalized.find(
         (reading) => reading.angleName === segmenter.signalAngleName,
       );
@@ -256,6 +257,7 @@ export function MovementAnalysisWorkspace() {
   }, [selectedReadings]);
   const sessionTrend = [...historicalTrend, ...currentSessionTrend];
   const displayedRuleCount = isRecording ? activeRulesRef.current.length : rules.length;
+  const usesKneeCycleReps = movement === "squat-front" || movement === "squat-side";
 
   const videoOverlay = (
     <div className="max-w-[180px] rounded-xl bg-black/75 px-3 py-2 text-right text-white backdrop-blur sm:max-w-none sm:px-4 sm:py-3 sm:text-left">
@@ -290,7 +292,7 @@ export function MovementAnalysisWorkspace() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Session capture</p>
             <h2 className="mt-1 text-xl font-semibold text-zinc-950">Movement-quality analysis</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              {movement} · Detected reps: {reps.length}
+              {movement} · {usesKneeCycleReps ? `Detected reps: ${reps.length}` : "per-frame analysis; squat rep segmentation is not applied"}
             </p>
           </div>
           {!isRecording ? (
