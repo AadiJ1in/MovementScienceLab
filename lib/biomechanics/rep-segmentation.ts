@@ -1,4 +1,4 @@
-import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
+import type { AngleName, AngleReading } from "./angles";
 
 export type RepSegmentationConfig = {
   angleName: AngleName;
