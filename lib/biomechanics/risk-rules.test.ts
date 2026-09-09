@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateMovementRules, type MovementRule } from "./risk-rules";
+import {
+  collapseMovementFlags,
+  evaluateMovementRules,
+  parseMovementRules,
+  type MovementRule,
+} from "./risk-rules";
 import type { AngleReading } from "./angles";
 
 const reading: AngleReading = {
@@ -10,13 +15,14 @@ const reading: AngleReading = {
 };
 
 const rule: MovementRule = {
-  id: "literature-rule-1",
+  id: "test-rule-1",
   angleName: "leftKneeFrontalDeviation",
   label: "Left frontal knee deviation",
   comparator: "greaterThan",
   threshold: 10,
   severity: "caution",
-  sourceLabel: "Example supplied source",
+  sourceLabel: "Test-only supplied source",
+  sourceUrl: "https://example.com/test-source",
 };
 
 describe("evaluateMovementRules", () => {
@@ -29,5 +35,43 @@ describe("evaluateMovementRules", () => {
 
   it("emits no flag inside the configured rule", () => {
     expect(evaluateMovementRules([{ ...reading, value: 9 }], [rule])).toHaveLength(0);
+  });
+
+  it("supports absolute thresholds for signed metrics", () => {
+    const absoluteRule: MovementRule = {
+      ...rule,
+      angleName: "trunkLean",
+      comparator: "absoluteGreaterThan",
+      threshold: 8,
+    };
+    const [flag] = evaluateMovementRules(
+      [{ ...reading, angleName: "trunkLean", value: -11 }],
+      [absoluteRule],
+    );
+    expect(flag.excessDegrees).toBe(3);
+  });
+});
+
+describe("parseMovementRules", () => {
+  it("accepts a fully sourced configuration", () => {
+    expect(parseMovementRules([rule])).toHaveLength(1);
+  });
+
+  it("rejects a threshold without a source URL", () => {
+    const { sourceUrl: _sourceUrl, ...unsourced } = rule;
+    expect(() => parseMovementRules([unsourced])).toThrow(/sourceUrl/);
+  });
+});
+
+describe("collapseMovementFlags", () => {
+  it("keeps the worst exceedance for the same rule and rep", () => {
+    const flags = evaluateMovementRules(
+      [reading, { ...reading, frameTimestamp: 1300, value: 17 }],
+      [rule],
+      2,
+    );
+    const collapsed = collapseMovementFlags(flags);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0]?.excessDegrees).toBe(7);
   });
 });
