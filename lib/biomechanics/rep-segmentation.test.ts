@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AngleReading } from "@/lib/biomechanics/angles";
+import type { AngleReading } from "./angles";
 import { DEFAULT_KNEE_REP_CONFIG, RepSegmenter } from "./rep-segmentation";
 
 function sample(value: number, frameTimestamp: number): AngleReading {
