@@ -7,7 +7,7 @@ import { compareRepToReference, scoreRepAgainstReference } from "@/lib/biomechan
 export type ReferenceTrajectoryFile = {
   angleName: AngleName;
   values: number[];
-  sourceLabel?: string;
+  sourceLabel: string;
   deviationBoundary?: number;
 };
 
@@ -31,6 +31,9 @@ export function ReferenceComparisonPanel({
       if (!Array.isArray(parsed.values) || parsed.values.length < 3 || !parsed.values.every(Number.isFinite)) {
         throw new Error("Reference values must be an array of at least 3 finite numbers.");
       }
+      if (!parsed.sourceLabel?.trim()) {
+        throw new Error("Reference sourceLabel is required so trajectory provenance is explicit.");
+      }
       if (parsed.deviationBoundary !== undefined && !Number.isFinite(parsed.deviationBoundary)) {
         throw new Error("deviationBoundary must be numeric when supplied.");
       }
@@ -48,15 +51,15 @@ export function ReferenceComparisonPanel({
     if (sample.length < 3) return null;
 
     if (reference.deviationBoundary !== undefined) {
+      const comparison = compareRepToReference(
+        angleName,
+        sample,
+        reference.values,
+        reference.deviationBoundary,
+      );
       return {
-        score: compareRepToReference(angleName, sample, reference.values, reference.deviationBoundary)
-          .normalizedDistance,
-        interpretation: compareRepToReference(
-          angleName,
-          sample,
-          reference.values,
-          reference.deviationBoundary,
-        ).interpretation,
+        score: comparison.normalizedDistance,
+        interpretation: comparison.interpretation,
       };
     }
 
@@ -72,7 +75,7 @@ export function ReferenceComparisonPanel({
         <div>
           <p className="text-sm font-medium text-zinc-900">Reference-form comparison</p>
           <p className="mt-1 text-xs leading-5 text-zinc-600">
-            Load a labeled angle trajectory and compare the current captured trajectory with DTW. The score is form deviation, not injury probability.
+            Load a labeled angle trajectory with provenance and compare the current captured trajectory with DTW. The score is form deviation, not injury probability.
           </p>
         </div>
         <label className="cursor-pointer rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm">
@@ -88,7 +91,7 @@ export function ReferenceComparisonPanel({
 
       {reference && (
         <div className="mt-3 text-xs text-zinc-600">
-          Reference: {reference.sourceLabel ?? "user-supplied trajectory"} · {reference.values.length} samples
+          Reference: {reference.sourceLabel} · {reference.values.length} samples
         </div>
       )}
       {result && (
