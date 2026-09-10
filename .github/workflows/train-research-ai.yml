@@ -12,7 +12,7 @@ on:
 jobs:
   train-rehab24:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -92,6 +92,12 @@ jobs:
             .research-output/rehab24-multiexercise-models.json \
             .research-output/rehab24-temporal-models.json \
             .research-output/model-promotion-manifest.json
+      - name: Quantify validation uncertainty and calibration
+        run: |
+          python ml/evaluate_model_uncertainty.py \
+            .research-output/rehab24-all-exercises.csv \
+            .research-output/rehab24-temporal-features.csv \
+            .research-output/model-uncertainty-report.json
       - name: Print validation report
         run: |
           python - <<'PY'
@@ -99,10 +105,12 @@ jobs:
           model = json.load(open('.research-output/rehab24-squat-model.json'))
           benchmark = json.load(open('.research-output/rehab24-squat-benchmark.json'))
           promotion = json.load(open('.research-output/model-promotion-manifest.json'))
+          uncertainty = json.load(open('.research-output/model-uncertainty-report.json'))
           print(json.dumps(benchmark, indent=2))
           print(json.dumps(model['validation'], indent=2))
           print(json.dumps(model['deploymentGate'], indent=2))
           print(json.dumps(promotion, indent=2))
+          print(json.dumps(uncertainty, indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
