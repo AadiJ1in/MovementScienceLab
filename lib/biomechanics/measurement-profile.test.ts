@@ -51,4 +51,16 @@ describe("capture-view measurement profiles", () => {
     expect(side.some((reading) => reading.angleName === "leftKneeFlexion")).toBe(true);
     expect(side.some((reading) => reading.angleName === "leftKneeFrontalDeviation")).toBe(false);
   });
+
+  it("keeps side-view trunk lean when the far-side shoulder and hip are occluded", () => {
+    const sideFrame = completeFrame();
+    sideFrame.keypoints[12] = keypoint(12, 0.6, 0.2, 0.2);
+    sideFrame.keypoints[24] = keypoint(24, 0.55, 0.5, 0.2);
+
+    const side = computeAnglesForMovement(sideFrame, "squat-side");
+    const trunk = side.find((reading) => reading.angleName === "trunkLean");
+
+    expect(trunk).toBeDefined();
+    expect(trunk?.confidence).toBeCloseTo(0.95);
+  });
 });
