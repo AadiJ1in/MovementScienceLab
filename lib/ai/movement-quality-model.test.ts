@@ -29,7 +29,7 @@ const features: MovementQualityFeatureName[] = [
 
 function artifact(): MovementQualityModelArtifact {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     modelType: "movement-quality-deviation-classifier",
     clinicalClaim: "none",
     positiveClass: "deviation",
@@ -48,6 +48,17 @@ function artifact(): MovementQualityModelArtifact {
       ) as Record<MovementQualityFeatureName, number>,
     },
     calibration: { method: "test", intercept: 0, coefficient: 1 },
+    decisionPolicy: {
+      threshold: 0.5,
+      selectionMethod: "test",
+      uncertaintyHalfWidth: 0,
+    },
+    domainGate: {
+      method: "max-absolute-standardized-feature",
+      maxAbsStandardizedValue: 4,
+      trainingQuantile: 0.99,
+      maxMissingFraction: 0.25,
+    },
     validation: {
       splitUnit: "subject",
       development: {},
@@ -76,6 +87,25 @@ describe("movement quality model", () => {
     expect(result.label).toBe("deviation-like");
     expect(result.featureContributions[0].feature).toBe("peak_trunk_lean");
     expect(result.interpretation).toContain("not an injury prediction");
+  });
+
+  it("rejects a clearly out-of-training-distribution sample", () => {
+    const input = { ...emptyInput, peak_trunk_lean: 10 };
+    const result = inferMovementQuality(artifact(), input);
+    expect(result.label).toBe("uncertain");
+    expect(result.outOfDomain).toBe(true);
+    expect(result.uncertaintyReasons.join(" ")).toMatch(/outside the learned training distribution/);
+  });
+
+  it("rejects samples with too many missing active features", () => {
+    const input = { ...emptyInput };
+    features.slice(0, 6).forEach((feature) => {
+      input[feature] = null;
+    });
+    const result = inferMovementQuality(artifact(), input);
+    expect(result.label).toBe("uncertain");
+    expect(result.outOfDomain).toBe(true);
+    expect(result.uncertaintyReasons.join(" ")).toMatch(/Too many model inputs are missing/);
   });
 
   it("blocks artifacts that have not completed external validation", () => {
