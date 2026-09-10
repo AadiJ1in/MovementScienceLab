@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-10",
+  "datasets": [
+    {
+      "id": "ui-prmd",
+      "name": "University of Idaho Physical Rehabilitation Movement Data",
+      "primarySource": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/",
+      "dataSource": "https://webpages.uidaho.edu/ui-prmd/",
+      "subjects": 10,
+      "modalities": ["Kinect skeleton", "Vicon joint positions/angles"],
+      "labels": ["correct execution", "non-optimal execution protocol"],
+      "bestUse": ["movement-quality classification", "feature validation"],
+      "notValidFor": ["direct future-injury probability"],
+      "licenseStatus": "verify official dataset terms before redistribution",
+      "trustTier": "research-benchmark"
+    },
+    {
+      "id": "kimore",
+      "name": "KIMORE",
+      "primarySource": "https://pubmed.ncbi.nlm.nih.gov/31217121/",
+      "dataSource": "https://drive.google.com/drive/folders/1b1anGzSytePiCUyoz8AlGMV2G54e_ZeC?usp=share_link",
+      "subjects": 78,
+      "modalities": ["RGB-D", "Kinect skeleton", "clinician questionnaire scores"],
+      "labels": ["clinician-scored movement quality"],
+      "bestUse": ["movement-quality regression", "clinical-domain validation"],
+      "notValidFor": ["direct future-injury probability"],
+      "licenseStatus": "free research dataset; verify official redistribution terms before bundling",
+      "trustTier": "clinician-scored-research-benchmark"
+    },
+    {
+      "id": "execheck",
+      "name": "ExeCheck",
+      "primarySource": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
+      "dataSource": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
+      "subjects": 7,
+      "modalities": ["RGB-D video", "Azure Kinect skeleton positions/orientations"],
+      "labels": ["paired correct form", "paired incorrect form"],
+      "bestUse": ["rehabilitation deviation classification", "error localization research"],
+      "notValidFor": ["future-injury probability"],
+      "licenseStatus": "verify dataset-specific terms before redistribution",
+      "trustTier": "research-benchmark-small-cohort"
+    },
+    {
+      "id": "youtube-expert-annotated",
+      "name": "Expert-annotated licensed public video augmentation",
+      "primarySource": null,
+      "dataSource": null,
+      "subjects": null,
+      "modalities": ["RGB video converted to MediaPipe landmarks"],
+      "labels": ["must be independently annotated by qualified reviewers"],
+      "bestUse": ["camera diversity", "lighting diversity", "viewpoint robustness", "occlusion robustness"],
+      "notValidFor": ["using titles/descriptions as medical labels", "injury outcome ground truth"],
+      "licenseStatus": "only use videos whose terms permit the intended training use",
+      "trustTier": "augmentation-only"
+    }
+  ],
+  "acceptanceRules": {
+    "requiresParticipantLevelSplit": true,
+    "requiresProvenance": true,
+    "requiresLicenseReview": true,
+    "requiresMeasurementMapping": true,
+    "requiresExternalValidationBeforeProductionAI": true,
+    "forbidSyntheticDataAsSoleClinicalValidation": true
+  }
+}
