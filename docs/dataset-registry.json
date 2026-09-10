@@ -1,7 +1,77 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "lastReviewed": "2026-09-10",
   "datasets": [
+    {
+      "id": "intellirehabds",
+      "name": "IntelliRehabDS (IRDS)",
+      "primarySource": "https://www.mdpi.com/2306-5729/6/5/46",
+      "dataSource": "https://doi.org/10.5281/zenodo.4610859",
+      "subjects": 29,
+      "patientSubjects": 15,
+      "controlSubjects": 14,
+      "labeledRepetitions": 2577,
+      "modalities": ["Kinect 3D skeleton", "2D projected joint coordinates", "joint tracking state", "timestamps"],
+      "labels": ["correct", "incorrect", "rare unassignable/poorly executed"],
+      "annotation": "Two independent annotators; reported inter-annotator agreement 88%, with disagreements revisited.",
+      "bestUse": ["patient-inclusive movement-quality classification", "external validation", "position-aware robustness for standing/chair/wheelchair/frame-supported exercises"],
+      "notValidFor": ["direct future-injury probability", "diagnosis from correctness label"],
+      "licenseStatus": "CC BY 4.0",
+      "commercialUse": "permitted with attribution under CC BY 4.0; still requires clinical validation for product use",
+      "transferability": "partial; Kinect skeleton and projected 2D coordinates require explicit mapping to MediaPipe measurements",
+      "trustTier": "priority-open-clinically-relevant-benchmark"
+    },
+    {
+      "id": "keraal",
+      "name": "KERAAL Low Back Pain Physical Rehabilitation Dataset",
+      "primarySource": "https://keraal.enstb.org/KeraalDataset.html",
+      "dataSource": "https://keraal.enstb.org/KeraalDataset.html",
+      "subjects": 21,
+      "patientSubjects": 12,
+      "controlSubjects": 9,
+      "modalities": ["RGB video", "Kinect 3D skeleton", "2D OpenPose/BlazePose-derived skeleton", "medical annotations"],
+      "labels": ["correct/incorrect", "error type", "error severity", "responsible body part", "temporal error interval"],
+      "annotation": "Rehabilitation-doctor/medical expert annotation; dataset documentation describes multiple annotators and temporal/spatial error localization.",
+      "bestUse": ["clinician-annotated error localization", "low-back-pain rehabilitation quality", "temporal feedback research", "webcam-domain validation using RGB-derived 2D pose"],
+      "notValidFor": ["general population injury prediction", "commercial model training without separate permission"],
+      "licenseStatus": "CC BY-NC-SA",
+      "commercialUse": "not permitted by default; research/validation only unless separate permission is obtained",
+      "transferability": "stronger than Kinect-only datasets for camera-domain research because RGB and 2D pose representations are included",
+      "trustTier": "priority-clinician-annotated-research-only"
+    },
+    {
+      "id": "gaitex",
+      "name": "GAITEX",
+      "primarySource": "https://www.nature.com/articles/s41597-025-06439-x",
+      "dataSource": "https://www.nature.com/articles/s41597-025-06439-x",
+      "subjects": null,
+      "modalities": ["optical motion capture", "IMU", "RGB video", "gait recordings"],
+      "labels": ["one instructed correct condition", "three specific instructed incorrect variants per rehabilitation exercise", "rep start/end timestamps"],
+      "annotation": "Execution variants were instructed and then manually inspected by a supervisor; labels represent intended conditions rather than independent clinical quality ratings.",
+      "bestUse": ["specific error-type classification", "foot-drop rehabilitation exercise research", "multimodal robustness"],
+      "notValidFor": ["clinical patient correctness ground truth", "future injury prediction"],
+      "licenseStatus": "verify repository/data-record license before training or redistribution",
+      "commercialUse": "blocked until license review is complete",
+      "transferability": "partial; useful for learning controlled error signatures but less strong than independent clinician annotation",
+      "trustTier": "controlled-error-benchmark"
+    },
+    {
+      "id": "rehab24-6",
+      "name": "REHAB24-6",
+      "primarySource": "https://www.muni.cz/en/research/publications/2562137",
+      "dataSource": "https://github.com/jessicaxtang/ExerciseLLM/tree/main/dataset/REHAB24-6",
+      "subjects": 10,
+      "labeledRepetitions": 1072,
+      "modalities": ["two synchronized RGB cameras", "2D skeleton", "3D skeleton", "16-camera motion capture"],
+      "labels": ["correct", "incorrect", "temporal repetition segmentation"],
+      "annotation": "Recordings were supervised by a physiotherapist who instructed both correct and incorrect executions.",
+      "bestUse": ["webcam-compatible 2D exercise correctness", "cross-view validation", "2D-vs-3D measurement comparison"],
+      "notValidFor": ["future injury probability"],
+      "licenseStatus": "academic/non-profit noncommercial research use",
+      "commercialUse": "not permitted without separate permission",
+      "transferability": "high for research because it includes RGB/2D views similar to the intended camera pipeline",
+      "trustTier": "priority-webcam-domain-research-only"
+    },
     {
       "id": "ui-prmd",
       "name": "University of Idaho Physical Rehabilitation Movement Data",
@@ -9,10 +79,13 @@
       "dataSource": "https://webpages.uidaho.edu/ui-prmd/",
       "subjects": 10,
       "modalities": ["Kinect skeleton", "Vicon joint positions/angles"],
-      "labels": ["correct execution", "non-optimal execution protocol"],
-      "bestUse": ["movement-quality classification", "feature validation"],
-      "notValidFor": ["direct future-injury probability"],
-      "licenseStatus": "verify official dataset terms before redistribution",
+      "labels": ["correct execution", "non-optimal execution"],
+      "annotation": "Incorrect repetitions were intentionally performed suboptimally, but individual error severity/type was not independently quantified.",
+      "bestUse": ["movement-quality classification", "feature validation", "correct-vs-nonoptimal benchmarking"],
+      "notValidFor": ["direct future-injury probability", "specific injury diagnosis"],
+      "licenseStatus": "verify official dataset terms before redistribution/commercial use",
+      "commercialUse": "blocked until dataset-specific terms are verified",
+      "transferability": "partial",
       "trustTier": "research-benchmark"
     },
     {
@@ -25,7 +98,9 @@
       "labels": ["clinician-scored movement quality"],
       "bestUse": ["movement-quality regression", "clinical-domain validation"],
       "notValidFor": ["direct future-injury probability"],
-      "licenseStatus": "free research dataset; verify official redistribution terms before bundling",
+      "licenseStatus": "verify original publisher terms before redistribution or commercial use",
+      "commercialUse": "blocked until original terms are verified",
+      "transferability": "partial",
       "trustTier": "clinician-scored-research-benchmark"
     },
     {
@@ -38,8 +113,25 @@
       "labels": ["paired correct form", "paired incorrect form"],
       "bestUse": ["rehabilitation deviation classification", "error localization research"],
       "notValidFor": ["future-injury probability"],
-      "licenseStatus": "verify dataset-specific terms before redistribution",
+      "licenseStatus": "verify dataset-specific terms before redistribution or commercial use",
+      "commercialUse": "blocked until terms are verified",
+      "transferability": "partial",
       "trustTier": "research-benchmark-small-cohort"
+    },
+    {
+      "id": "ul-red",
+      "name": "University of Liverpool Rehabilitation Exercise Dataset (UL-RED)",
+      "primarySource": "https://www.nature.com/articles/s41597-025-05099-1",
+      "dataSource": "https://www.nature.com/articles/s41597-025-05099-1",
+      "subjects": null,
+      "modalities": ["marker-based motion capture", "markerless motion tracking", "depth"],
+      "labels": ["exercise identity", "manually segmented repetitions"],
+      "bestUse": ["pose-estimation validation", "sensor-comparison", "rep segmentation"],
+      "notValidFor": ["correct-vs-incorrect training unless explicit quality labels are available", "future injury prediction"],
+      "licenseStatus": "verify data-record license",
+      "commercialUse": "blocked until license and label suitability are verified",
+      "transferability": "useful as measurement validation data, not primary correctness ground truth",
+      "trustTier": "measurement-validation-only"
     },
     {
       "id": "youtube-expert-annotated",
@@ -52,6 +144,8 @@
       "bestUse": ["camera diversity", "lighting diversity", "viewpoint robustness", "occlusion robustness"],
       "notValidFor": ["using titles/descriptions as medical labels", "injury outcome ground truth"],
       "licenseStatus": "only use videos whose terms permit the intended training use",
+      "commercialUse": "case-by-case only after license verification",
+      "transferability": "potentially high for camera robustness after expert annotation",
       "trustTier": "augmentation-only"
     }
   ],
@@ -60,7 +154,21 @@
     "requiresProvenance": true,
     "requiresLicenseReview": true,
     "requiresMeasurementMapping": true,
+    "requiresAnnotationMethodDocumentation": true,
+    "requiresPatientVsHealthyCompositionTracking": true,
     "requiresExternalValidationBeforeProductionAI": true,
-    "forbidSyntheticDataAsSoleClinicalValidation": true
-  }
+    "requiresWebcamDomainValidationBeforeProductionAI": true,
+    "forbidSyntheticDataAsSoleClinicalValidation": true,
+    "forbidWeakInternetMetadataAsGroundTruth": true,
+    "forbidCorrectnessLabelsBeingRebrandedAsInjuryOutcomeLabels": true
+  },
+  "priorityOrder": [
+    "IntelliRehabDS for larger open patient-inclusive correctness training/validation",
+    "KERAAL for doctor-annotated error type/body-part/time localization in research",
+    "REHAB24-6 for webcam-like 2D cross-view research validation",
+    "KIMORE for clinician-scored movement-quality regression",
+    "UI-PRMD for benchmark consistency",
+    "GAITEX for controlled specific error variants",
+    "UL-RED for pose/measurement validation rather than correctness labels"
+  ]
 }
