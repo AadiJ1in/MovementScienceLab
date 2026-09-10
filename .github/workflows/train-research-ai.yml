@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  train-rehab24-squat:
+  train-rehab24:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -35,34 +35,55 @@ jobs:
           ROOT=$(dirname "$(find .research-data/rehab24 -name annotations.csv -print -quit)")
           test -n "$ROOT"
           python ml/build_rehab24_squat_features.py "$ROOT" .research-output/rehab24-squat-features.csv
-      - name: Benchmark candidate model families with subject-grouped CV
+      - name: Benchmark candidate squat model families with subject-grouped CV
         run: |
           python ml/benchmark_models.py \
             .research-output/rehab24-squat-features.csv \
             .research-output/rehab24-squat-benchmark.json
-      - name: Train calibrated interpretable deployment candidate
+      - name: Train calibrated interpretable squat candidate
         run: |
           python ml/train_interpretable_model.py \
             .research-output/rehab24-squat-features.csv \
             .research-output/rehab24-squat-model.json
+      - name: Build all-exercise kinematic features
+        run: |
+          ROOT=$(dirname "$(find .research-data/rehab24 -name annotations.csv -print -quit)")
+          python ml/build_rehab24_multiexercise_features.py \
+            "$ROOT" \
+            .research-output/rehab24-all-exercises.csv
+      - name: Train task-specific models for all supported exercises
+        run: |
+          python ml/train_multiexercise_models.py \
+            .research-output/rehab24-all-exercises.csv \
+            .research-output/rehab24-multiexercise-models.json
       - name: Print validation report
         run: |
           python - <<'PY'
           import json
           model = json.load(open('.research-output/rehab24-squat-model.json'))
           benchmark = json.load(open('.research-output/rehab24-squat-benchmark.json'))
+          multi = json.load(open('.research-output/rehab24-multiexercise-models.json'))
           print(json.dumps(benchmark, indent=2))
           print(json.dumps(model['validation'], indent=2))
-          print(json.dumps(model['deploymentGate'], indent=2))
+          print(json.dumps({
+              'models': [
+                  {
+                      'exercise': m.get('exerciseName'),
+                      'status': m.get('status'),
+                      'validation': m.get('validation'),
+                  }
+                  for m in multi['models']
+              ]
+          }, indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: rehab24-squat-research-model
+          name: rehab24-movement-quality-research-models
           path: .research-output/
           include-hidden-files: true
           retention-days: 14
 
 # REHAB24-6 is licensed for academic/non-profit noncommercial research use.
-# This workflow is for research evaluation only. Its artifact must not be
-# shipped as a commercial production model without separate permission and
-# webcam-domain validation.
+# This workflow is for research evaluation only. Its artifacts must not be
+# shipped as commercial production models without separate permission,
+# independent external validation, and webcam-domain validation.
