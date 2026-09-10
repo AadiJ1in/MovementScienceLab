@@ -13,13 +13,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      npm_config_fetch_retries: 2
+      npm_config_fetch_retry_mintimeout: 5000
+      npm_config_fetch_retry_maxtimeout: 20000
+      npm_config_fetch_timeout: 60000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: https://registry.npmjs.org
       - name: Generate dependency lock
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund --loglevel=verbose
       - uses: actions/upload-artifact@v4
         with:
           name: generated-package-lock
