@@ -1,4 +1,4 @@
-import type { CaptureView, MovementType, PoseFrame } from "./types";
+import type { CaptureView, MovementType, PoseFrame, PoseKeypoint } from "./types";
 
 export const KEYPOINT_VISIBILITY_THRESHOLD = 0.7;
 
@@ -78,6 +78,10 @@ function trustedCount(frame: PoseFrame, indices: readonly number[]) {
   return indices.filter((index) => frame.keypoints[index]?.trusted === true).length;
 }
 
+function isTrustedPoint(point: PoseKeypoint | undefined): point is PoseKeypoint {
+  return point?.trusted === true;
+}
+
 export function evaluateCameraGuidance(
   frame: PoseFrame | null,
   movement: MovementType,
@@ -115,7 +119,7 @@ export function evaluateCameraGuidance(
 
   const framingPoints = framingIndices
     .map((index) => frame.keypoints[index])
-    .filter((point) => point?.trusted === true);
+    .filter(isTrustedPoint);
 
   if (framingPoints.length > 0) {
     const xs = framingPoints.map((point) => point.x);
