@@ -98,4 +98,19 @@ describe("collapseMovementFlags", () => {
     expect(collapsed).toHaveLength(1);
     expect(collapsed[0]?.excessDegrees).toBe(7);
   });
+
+  it("keeps only the worst unassigned event for a rule", () => {
+    const flags = evaluateMovementRules(
+      [
+        reading,
+        { ...reading, frameTimestamp: 1300, value: 12 },
+        { ...reading, frameTimestamp: 1400, value: 18 },
+      ],
+      [rule],
+    );
+    const collapsed = collapseMovementFlags(flags);
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0]?.frameTimestamp).toBe(1400);
+    expect(collapsed[0]?.excessDegrees).toBe(8);
+  });
 });
