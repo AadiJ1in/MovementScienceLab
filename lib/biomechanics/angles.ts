@@ -120,7 +120,7 @@ function kneeFrontalDeviation(
   );
 }
 
-function trunkLean(frame: PoseFrame): AngleReading | null {
+function trunkLeanMidline(frame: PoseFrame): AngleReading | null {
   const leftShoulder = point(frame, INDEX.leftShoulder);
   const rightShoulder = point(frame, INDEX.rightShoulder);
   const leftHip = point(frame, INDEX.leftHip);
@@ -141,6 +141,46 @@ function trunkLean(frame: PoseFrame): AngleReading | null {
     "trunkLean",
     angleFromVertical(hipMid, shoulderMid),
     [leftShoulder, rightShoulder, leftHip, rightHip],
+  );
+}
+
+/**
+ * Side-view trunk lean uses the most visible shoulder/hip chain instead of
+ * requiring both sides of the body. The far-side shoulder/hip are commonly
+ * partially occluded in a true side-on capture, so requiring them would turn
+ * good camera positioning into missing measurements.
+ */
+export function trunkLeanFromBestVisibleSide(frame: PoseFrame): AngleReading | null {
+  const candidates = (["left", "right"] as const)
+    .map((side) => {
+      const shoulder = point(frame, INDEX[`${side}Shoulder`]);
+      const hip = point(frame, INDEX[`${side}Hip`]);
+      if (!shoulder || !hip) return null;
+      return {
+        shoulder,
+        hip,
+        confidence: minConfidence(shoulder, hip),
+      };
+    })
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        shoulder: PoseKeypoint;
+        hip: PoseKeypoint;
+        confidence: number;
+      } => candidate !== null,
+    )
+    .sort((a, b) => b.confidence - a.confidence);
+
+  const best = candidates[0];
+  if (!best) return null;
+
+  return reading(
+    frame,
+    "trunkLean",
+    angleFromVertical(best.hip, best.shoulder),
+    [best.shoulder, best.hip],
   );
 }
 
@@ -180,7 +220,7 @@ export function computeAnglesForFrame(frame: PoseFrame): AngleReading[] {
     kneeFlexion(frame, "right"),
     kneeFrontalDeviation(frame, "left"),
     kneeFrontalDeviation(frame, "right"),
-    trunkLean(frame),
+    trunkLeanMidline(frame),
     pelvicLineObliquity(frame),
     shoulderElevation(frame, "left"),
     shoulderElevation(frame, "right"),
