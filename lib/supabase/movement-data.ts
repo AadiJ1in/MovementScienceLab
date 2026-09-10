@@ -145,6 +145,7 @@ export type TrendPoint = { sessionLabel: string; value: number };
 export async function loadAngleTrend(
   supabase: SupabaseClient,
   angleName: AngleName,
+  captureMode: MovementType,
   patientId?: string,
   limit = 12,
 ): Promise<TrendPoint[]> {
@@ -152,6 +153,8 @@ export async function loadAngleTrend(
     .from("movement_sessions")
     .select("id, started_at, angle_samples!inner(value_degrees, angle_name)")
     .eq("status", "complete")
+    .eq("capture_mode", captureMode)
+    .eq("measurement_version", MEASUREMENT_VERSION)
     .eq("angle_samples.angle_name", angleName)
     .order("started_at", { ascending: false })
     .limit(limit);
