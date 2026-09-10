@@ -21,6 +21,13 @@ NON_FEATURE_COLUMNS = {
     "label",
     "source_file",
     "source_correctness",
+    "session_id",
+    "repetition",
+    "position",
+    "camera_id",
+    "view",
+    "site_id",
+    "cohort",
 }
 
 
@@ -63,7 +70,7 @@ def metrics(y: np.ndarray, p: np.ndarray, threshold: float) -> dict:
     }
 
 
-def fit_exercise(df: pd.DataFrame) -> dict:
+def fit_exercise(df: pd.DataFrame, commercial_use_blocked: bool) -> dict:
     exercise_name = str(df["exercise_name"].iloc[0])
     exercise_id = int(df["exercise_id"].iloc[0])
     groups = df["subject_id"].astype(str).to_numpy()
@@ -107,6 +114,7 @@ def fit_exercise(df: pd.DataFrame) -> dict:
         "nDeviations": int(np.sum(y == 1)),
         "nReference": int(np.sum(y == 0)),
         "features": candidate_features,
+        "excludedMetadataColumns": sorted(col for col in NON_FEATURE_COLUMNS if col in df.columns),
         "preprocessing": {
             "medians": [float(x) for x in imputer.statistics_],
             "means": [float(x) for x in scaler.mean_],
@@ -135,24 +143,24 @@ def fit_exercise(df: pd.DataFrame) -> dict:
         "deploymentGate": {
             "requiresIndependentExternalValidation": True,
             "requiresWebcamDomainValidation": True,
-            "commercialUseBlockedBySourceLicense": True,
+            "commercialUseBlockedBySourceLicense": commercial_use_blocked,
             "mayBeDisplayedAsInjuryProbability": False,
         },
     }
 
 
-def main(input_csv: Path, output_json: Path) -> None:
+def main(input_csv: Path, output_json: Path, source_dataset: str, commercial_use_blocked: bool) -> None:
     df = pd.read_csv(input_csv)
     required = {"exercise_id", "exercise_name", "subject_id", "label"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Missing columns: {sorted(missing)}")
 
-    models = [fit_exercise(group.copy()) for _, group in df.groupby("exercise_id", sort=True)]
+    models = [fit_exercise(group.copy(), commercial_use_blocked) for _, group in df.groupby("exercise_id", sort=True)]
     payload = {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "modelFamily": "task-specific-rehab-movement-quality",
-        "sourceDataset": "REHAB24-6",
+        "sourceDataset": source_dataset,
         "clinicalClaim": "none",
         "models": models,
         "warning": "These models classify resemblance to source-dataset correct/deviation examples. They are not injury predictors and are not cleared for hospital production.",
@@ -160,6 +168,7 @@ def main(input_csv: Path, output_json: Path) -> None:
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
+        "sourceDataset": source_dataset,
         "trained": [m["exerciseName"] for m in models if m["status"] == "trained-research-only"],
         "skipped": [m for m in models if m["status"] == "skipped"],
     }, indent=2))
@@ -169,5 +178,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_csv", type=Path)
     parser.add_argument("output_json", type=Path)
+    parser.add_argument("--source-dataset", default="REHAB24-6")
+    parser.add_argument("--commercial-use-blocked", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
-    main(args.input_csv, args.output_json)
+    main(args.input_csv, args.output_json, args.source_dataset, args.commercial_use_blocked)
