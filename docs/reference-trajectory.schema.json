@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://movementsciencelab.local/schemas/reference-trajectory.schema.json",
+  "title": "Movement Science Lab DTW reference trajectory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "angleName",
+    "captureView",
+    "values",
+    "sourceLabel",
+    "sourceUrl",
+    "sourceMeasurementMethod"
+  ],
+  "properties": {
+    "angleName": {
+      "enum": [
+        "leftKneeFlexion",
+        "rightKneeFlexion",
+        "leftKneeFrontalDeviation",
+        "rightKneeFrontalDeviation",
+        "trunkLean",
+        "pelvicLineObliquity",
+        "leftShoulderElevation",
+        "rightShoulderElevation"
+      ]
+    },
+    "captureView": { "enum": ["front", "side"] },
+    "values": {
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "number" }
+    },
+    "sourceLabel": { "type": "string", "minLength": 1 },
+    "sourceUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
+    "sourceMeasurementMethod": { "type": "string", "minLength": 1 },
+    "deviationBoundary": { "type": "number", "minimum": 0 },
+    "deviationBoundarySourceLabel": { "type": "string", "minLength": 1 },
+    "deviationBoundarySourceUrl": { "type": "string", "format": "uri", "pattern": "^https?://" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["deviationBoundary"] },
+      "then": {
+        "required": ["deviationBoundarySourceLabel", "deviationBoundarySourceUrl"]
+      }
+    },
+    {
+      "if": { "properties": { "captureView": { "const": "front" } } },
+      "then": {
+        "properties": {
+          "angleName": {
+            "enum": [
+              "leftKneeFrontalDeviation",
+              "rightKneeFrontalDeviation",
+              "trunkLean",
+              "pelvicLineObliquity",
+              "leftShoulderElevation",
+              "rightShoulderElevation"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "captureView": { "const": "side" } } },
+      "then": {
+        "properties": {
+          "angleName": {
+            "enum": [
+              "leftKneeFlexion",
+              "rightKneeFlexion",
+              "trunkLean",
+              "leftShoulderElevation",
+              "rightShoulderElevation"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
