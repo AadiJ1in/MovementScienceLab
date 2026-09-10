@@ -72,9 +72,12 @@ export function MovementAnalysisWorkspace() {
   const firstTimestampRef = useRef<number | null>(null);
   const segmenterRef = useRef<RepSegmenter | null>(null);
   const recordingRef = useRef(false);
+  const savingRef = useRef(false);
   const activeRulesRef = useRef<MovementRule[]>([]);
   const storageReadingsRef = useRef<AngleReading[]>([]);
   const storageBucketRef = useRef<Map<AngleName, number>>(new Map());
+  const completedRepsRef = useRef<RepSummary[]>([]);
+  const flagsRef = useRef<MovementFlag[]>([]);
   const userChange = useCallback((nextUser: User | null) => setUser(nextUser), []);
   const availableAngles = useMemo(() => [...angleNamesForMovement(movement)], [movement]);
 
@@ -87,6 +90,16 @@ export function MovementAnalysisWorkspace() {
       setSelectedAngle(availableAngles[0]);
     }
   }, [availableAngles, selectedAngle]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!recordingRef.current && !saveRetryAvailable && !savingRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveRetryAvailable]);
 
   const refreshTrend = useCallback(async () => {
     if (!hasSupabaseConfig() || !user) {
@@ -170,7 +183,10 @@ export function MovementAnalysisWorkspace() {
         const completed = segmenter.ingest(signal);
         const after = segmenter.activeRepIndex ?? undefined;
         frameRepIndex = completed?.repIndex ?? after ?? before;
-        if (completed) setReps((current) => [...current, completed]);
+        if (completed) {
+          completedRepsRef.current.push(completed);
+          setReps([...completedRepsRef.current]);
+        }
       }
     }
 
@@ -181,12 +197,13 @@ export function MovementAnalysisWorkspace() {
     );
     setReadings((current) => [...current, ...normalized].slice(-MAX_LIVE_POINTS));
     if (nextFlags.length) {
-      setFlags((current) => collapseMovementFlags([...current, ...nextFlags]));
+      flagsRef.current = collapseMovementFlags([...flagsRef.current, ...nextFlags]);
+      setFlags(flagsRef.current);
     }
   }
 
   async function startRecording() {
-    if (saveRetryAvailable || isSaving) {
+    if (saveRetryAvailable || savingRef.current) {
       setPersistenceStatus(
         "A prior persisted session still needs to be saved. Retry that save before starting another recording.",
       );
@@ -209,6 +226,8 @@ export function MovementAnalysisWorkspace() {
     segmenterRef.current = null;
     storageReadingsRef.current = [];
     storageBucketRef.current.clear();
+    completedRepsRef.current = [];
+    flagsRef.current = [];
     setReadings([]);
     setFlags([]);
     setReps([]);
@@ -251,7 +270,8 @@ export function MovementAnalysisWorkspace() {
   }
 
   async function persistCurrentSession(id: string) {
-    if (isSaving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setIsSaving(true);
     setSaveRetryAvailable(false);
 
@@ -259,8 +279,8 @@ export function MovementAnalysisWorkspace() {
       setPersistenceStatus("Saving session…");
       const supabase = createBrowserSupabaseClient();
       const sampled = storageReadingsRef.current;
-      const repAggregates = aggregateReps(reps, sampled);
-      const persistedFlags = collapseMovementFlags(flags);
+      const repAggregates = aggregateReps(completedRepsRef.current, sampled);
+      const persistedFlags = collapseMovementFlags(flagsRef.current);
       await saveAngleSamples(supabase, id, sampled);
       await saveRepSummaries(supabase, id, repAggregates);
       await saveMovementFlags(supabase, id, persistedFlags);
@@ -276,6 +296,7 @@ export function MovementAnalysisWorkspace() {
         `Persistence failed: ${error instanceof Error ? error.message : "unknown error"}. The captured data remains in this page; use Retry save before starting another session.`,
       );
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   }
