@@ -31,6 +31,12 @@ export default function Home() {
               Measurement methodology
             </Link>
             <Link
+              href="/diagnostics"
+              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              Camera diagnostics
+            </Link>
+            <Link
               href="/api/readiness"
               className="rounded-xl border border-zinc-300 bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-zinc-800"
             >
