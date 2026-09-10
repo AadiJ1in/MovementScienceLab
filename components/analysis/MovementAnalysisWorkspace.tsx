@@ -54,6 +54,7 @@ function ruleAppliesToMovement(rule: MovementRule, movement: MovementType) {
 
 export function MovementAnalysisWorkspace() {
   const [isRecording, setIsRecording] = useState(false);
+  const [captureReady, setCaptureReady] = useState(false);
   const [readings, setReadings] = useState<AngleReading[]>([]);
   const [flags, setFlags] = useState<MovementFlag[]>([]);
   const [rules, setRules] = useState<MovementRule[]>(DEFAULT_MOVEMENT_RULES);
@@ -108,6 +109,11 @@ export function MovementAnalysisWorkspace() {
   useEffect(() => {
     void refreshTrend();
   }, [refreshTrend]);
+
+  function handleMovementChange(nextMovement: MovementType) {
+    setMovement(nextMovement);
+    setCaptureReady(false);
+  }
 
   function handleFrame(frame: PoseFrame | null) {
     if (!frame) {
@@ -176,6 +182,13 @@ export function MovementAnalysisWorkspace() {
   }
 
   async function startRecording() {
+    if (!captureReady) {
+      setPersistenceStatus(
+        "Recording was not started. Adjust the camera/body position until capture guidance reports a usable pose.",
+      );
+      return;
+    }
+
     const protocolRules = rules
       .filter((rule) => ruleAppliesToMovement(rule, movement))
       .map((rule) => ({ ...rule }));
@@ -309,7 +322,8 @@ export function MovementAnalysisWorkspace() {
 
       <PoseCapture
         onFrame={handleFrame}
-        onMovementChange={setMovement}
+        onMovementChange={handleMovementChange}
+        onCaptureReadyChange={setCaptureReady}
         movementLocked={isRecording}
         videoOverlay={videoOverlay}
       />
@@ -324,7 +338,13 @@ export function MovementAnalysisWorkspace() {
             </p>
           </div>
           {!isRecording ? (
-            <button onClick={startRecording} className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white">Start recording</button>
+            <button
+              onClick={startRecording}
+              disabled={!captureReady}
+              className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+            >
+              {captureReady ? "Start recording" : "Position camera to start"}
+            </button>
           ) : (
             <button onClick={stopRecording} className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white">Stop & save</button>
           )}
