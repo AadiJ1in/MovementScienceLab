@@ -59,19 +59,47 @@ def validate_columns(df: pd.DataFrame) -> list[str]:
     return observed
 
 
-def metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float = 0.5) -> dict:
+def confusion_stats(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict:
     predictions = (probabilities >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_true, predictions, labels=[0, 1]).ravel()
     sensitivity = tp / (tp + fn) if (tp + fn) else None
     specificity = tn / (tn + fp) if (tn + fp) else None
+    balanced_accuracy = None
+    if sensitivity is not None and specificity is not None:
+        balanced_accuracy = (sensitivity + specificity) / 2.0
     return {
+        "threshold": float(threshold),
+        "sensitivity": None if sensitivity is None else float(sensitivity),
+        "specificity": None if specificity is None else float(specificity),
+        "balancedAccuracy": None if balanced_accuracy is None else float(balanced_accuracy),
+        "confusion_matrix": [[int(tn), int(fp)], [int(fn), int(tp)]],
+    }
+
+
+def select_threshold(y_true: np.ndarray, probabilities: np.ndarray) -> float:
+    candidates = np.unique(np.concatenate(([0.0, 0.5, 1.0], probabilities)))
+    scored: list[tuple[float, float, float]] = []
+    for threshold in candidates:
+        stats = confusion_stats(y_true, probabilities, float(threshold))
+        balanced = stats["balancedAccuracy"]
+        if balanced is None:
+            continue
+        # Maximize balanced accuracy. On ties, prefer the threshold closest to
+        # 0.5 to avoid choosing an unnecessarily extreme operating point.
+        scored.append((float(balanced), -abs(float(threshold) - 0.5), float(threshold)))
+    if not scored:
+        raise ValueError("Could not select a development threshold.")
+    return max(scored)[2]
+
+
+def metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float) -> dict:
+    result = {
         "auroc": float(roc_auc_score(y_true, probabilities)),
         "auprc": float(average_precision_score(y_true, probabilities)),
         "brier": float(brier_score_loss(y_true, probabilities)),
-        "sensitivity_at_0_5": None if sensitivity is None else float(sensitivity),
-        "specificity_at_0_5": None if specificity is None else float(specificity),
-        "confusion_matrix": [[int(tn), int(fp)], [int(fn), int(tp)]],
     }
+    result.update(confusion_stats(y_true, probabilities, threshold))
+    return result
 
 
 def prob_to_logit(probabilities: np.ndarray) -> np.ndarray:
@@ -111,6 +139,10 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
         prob_to_logit(development_raw).reshape(-1, 1)
     )[:, 1]
 
+    # The operating point is selected only from out-of-fold development
+    # predictions. The held-out subjects do not influence the threshold.
+    decision_threshold = select_threshold(y_train, development_probabilities)
+
     interpretable = build_pipeline(features)
     interpretable.fit(X_train, y_train)
     test_raw = interpretable.predict_proba(X_test)[:, 1]
@@ -120,8 +152,12 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
     imputer = interpretable.named_steps["preprocess"].named_transformers_["numeric"].named_steps["impute"]
     classifier = interpretable.named_steps["classifier"]
 
+    standardized_train = interpretable.named_steps["preprocess"].transform(X_train)
+    per_row_max_abs_z = np.max(np.abs(standardized_train), axis=1)
+    max_abs_z_gate = float(np.quantile(per_row_max_abs_z, 0.99))
+
     artifact = {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "modelType": "movement-quality-deviation-classifier",
         "clinicalClaim": "none",
         "positiveClass": "training-set deviation/non-optimal movement",
@@ -143,10 +179,22 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
             "intercept": float(calibration_model.intercept_[0]),
             "coefficient": float(calibration_model.coef_[0, 0]),
         },
+        "decisionPolicy": {
+            "threshold": float(decision_threshold),
+            "selectionMethod": "maximize-balanced-accuracy-on-subject-grouped-oof-development-predictions",
+            # Engineering uncertainty band, not a clinical/biomechanical cutoff.
+            "uncertaintyHalfWidth": 0.10,
+        },
+        "domainGate": {
+            "method": "max-absolute-standardized-feature",
+            "maxAbsStandardizedValue": max_abs_z_gate,
+            "trainingQuantile": 0.99,
+            "maxMissingFraction": 0.25,
+        },
         "validation": {
             "splitUnit": "subject",
-            "development": metrics(y_train, development_probabilities),
-            "untouchedTest": metrics(y_test, test_probabilities),
+            "development": metrics(y_train, development_probabilities, decision_threshold),
+            "untouchedTest": metrics(y_test, test_probabilities, decision_threshold),
             "nSubjectsTotal": int(df["subject_id"].nunique()),
             "nSubjectsTrain": int(len(np.unique(groups_train))),
             "nSubjectsTest": int(len(np.unique(groups[test_idx]))),
