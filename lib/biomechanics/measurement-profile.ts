@@ -4,8 +4,8 @@ import {
   type AngleName,
   type AngleReading,
 } from "./angles";
-import { MOVEMENT_GUIDANCE } from "@/lib/pose/camera-guidance";
-import type { CaptureView, MovementType, PoseFrame } from "@/lib/pose/types";
+import { MOVEMENT_GUIDANCE } from "../pose/camera-guidance";
+import type { CaptureView, MovementType, PoseFrame } from "../pose/types";
 
 export const ANGLE_NAMES_BY_VIEW: Record<CaptureView, readonly AngleName[]> = {
   front: [
