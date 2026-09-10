@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MovementAnalysisWorkspace } from "@/components/analysis/MovementAnalysisWorkspace";
 
 export default function Home() {
@@ -16,6 +17,20 @@ export default function Home() {
             biomechanical flags, reference-form comparison, and session visualization. This is a
             movement-quality tool, not an injury-prediction or diagnostic system.
           </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/validation"
+              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              View clinical validation status
+            </Link>
+            <Link
+              href="/api/readiness"
+              className="rounded-xl border border-zinc-300 bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-zinc-800"
+            >
+              Hospital readiness API
+            </Link>
+          </div>
         </header>
 
         <MovementAnalysisWorkspace />
