@@ -1,4 +1,6 @@
 import type { AngleName, AngleReading } from "./angles";
+import { ANGLE_NAMES_BY_VIEW } from "./measurement-profile";
+import type { CaptureView } from "@/lib/pose/types";
 
 export type FlagSeverity = "info" | "caution" | "high";
 export type Comparator =
@@ -10,6 +12,7 @@ export type Comparator =
 export type MovementRule = {
   id: string;
   angleName: AngleName;
+  captureView: CaptureView;
   label: string;
   comparator: Comparator;
   threshold?: number;
@@ -17,7 +20,8 @@ export type MovementRule = {
   max?: number;
   severity: FlagSeverity;
   sourceLabel: string;
-  sourceUrl?: string;
+  sourceUrl: string;
+  sourceMeasurementMethod: string;
   notes?: string;
 };
 
@@ -26,12 +30,14 @@ export type MovementFlag = {
   frameTimestamp: number;
   repIndex?: number;
   angleName: AngleName;
+  captureView: CaptureView;
   measuredValue: number;
   severity: FlagSeverity;
   excessDegrees: number;
   message: string;
   sourceLabel: string;
-  sourceUrl?: string;
+  sourceUrl: string;
+  sourceMeasurementMethod: string;
 };
 
 const ANGLE_NAMES = new Set<AngleName>([
@@ -51,6 +57,7 @@ const COMPARATORS = new Set<Comparator>([
   "outsideRange",
 ]);
 const SEVERITIES = new Set<FlagSeverity>(["info", "caution", "high"]);
+const CAPTURE_VIEWS = new Set<CaptureView>(["front", "side"]);
 
 function evaluateExcess(reading: AngleReading, rule: MovementRule): number | null {
   if (rule.comparator === "greaterThan") {
@@ -96,12 +103,14 @@ export function evaluateMovementRules(
         frameTimestamp: reading.frameTimestamp,
         repIndex,
         angleName: reading.angleName,
+        captureView: rule.captureView,
         measuredValue: reading.value,
         severity: rule.severity,
         excessDegrees,
-        message: `${rule.label} exceeded the configured movement-quality threshold by ${excessDegrees.toFixed(1)}°${repIndex === undefined ? "" : ` during rep ${repIndex}`}.`,
+        message: `${rule.label} deviated beyond the configured movement-quality threshold by ${excessDegrees.toFixed(1)}°${repIndex === undefined ? "" : ` during rep ${repIndex}`}.`,
         sourceLabel: rule.sourceLabel,
         sourceUrl: rule.sourceUrl,
+        sourceMeasurementMethod: rule.sourceMeasurementMethod,
       });
     }
   }
@@ -132,29 +141,69 @@ export function collapseMovementFlags(flags: MovementFlag[]): MovementFlag[] {
   );
 }
 
+function assertSourceUrl(value: string, ruleId: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Rule ${ruleId} requires a valid sourceUrl.`);
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error(`Rule ${ruleId} sourceUrl must use http or https.`);
+  }
+}
+
 /**
- * Parse user-supplied rule JSON. Loaded rules must carry a source URL so the app
- * cannot activate an unexplained biomechanical cutoff by accident.
+ * Parse user-supplied rule JSON. Loaded rules must carry source provenance and
+ * the measurement method used by the source. This does not prove that a source
+ * threshold is transferable to webcam pose; it makes that assumption explicit
+ * and auditable instead of silently treating unlike measurements as equivalent.
  */
 export function parseMovementRules(input: unknown): MovementRule[] {
   if (!Array.isArray(input)) throw new Error("Rule configuration must be a JSON array.");
+
+  const seenIds = new Set<string>();
 
   return input.map((candidate, index) => {
     if (!candidate || typeof candidate !== "object") {
       throw new Error(`Rule ${index + 1} must be an object.`);
     }
     const rule = candidate as Partial<MovementRule>;
-    if (!rule.id || !rule.label || !rule.sourceLabel || !rule.sourceUrl) {
-      throw new Error(`Rule ${index + 1} requires id, label, sourceLabel, and sourceUrl.`);
+    if (
+      !rule.id ||
+      !rule.label ||
+      !rule.sourceLabel ||
+      !rule.sourceUrl ||
+      !rule.sourceMeasurementMethod
+    ) {
+      throw new Error(
+        `Rule ${index + 1} requires id, label, sourceLabel, sourceUrl, and sourceMeasurementMethod.`,
+      );
     }
+    if (seenIds.has(rule.id)) throw new Error(`Duplicate rule id: ${rule.id}.`);
+    seenIds.add(rule.id);
+
     if (!rule.angleName || !ANGLE_NAMES.has(rule.angleName)) {
       throw new Error(`Rule ${rule.id} has an unsupported angleName.`);
+    }
+    if (!rule.captureView || !CAPTURE_VIEWS.has(rule.captureView)) {
+      throw new Error(`Rule ${rule.id} requires captureView "front" or "side".`);
+    }
+    if (!ANGLE_NAMES_BY_VIEW[rule.captureView].includes(rule.angleName)) {
+      throw new Error(
+        `Rule ${rule.id} uses ${rule.angleName}, which is not valid for ${rule.captureView}-view capture.`,
+      );
     }
     if (!rule.comparator || !COMPARATORS.has(rule.comparator)) {
       throw new Error(`Rule ${rule.id} has an unsupported comparator.`);
     }
     if (!rule.severity || !SEVERITIES.has(rule.severity)) {
       throw new Error(`Rule ${rule.id} has an unsupported severity.`);
+    }
+
+    assertSourceUrl(rule.sourceUrl, rule.id);
+    if (!rule.sourceMeasurementMethod.trim()) {
+      throw new Error(`Rule ${rule.id} requires a non-empty sourceMeasurementMethod.`);
     }
 
     if (rule.comparator === "outsideRange") {
@@ -166,6 +215,10 @@ export function parseMovementRules(input: unknown): MovementRule[] {
       }
     } else if (!Number.isFinite(rule.threshold)) {
       throw new Error(`Rule ${rule.id} requires a numeric threshold.`);
+    }
+
+    if (rule.comparator === "absoluteGreaterThan" && (rule.threshold as number) < 0) {
+      throw new Error(`Rule ${rule.id} requires a non-negative absolute threshold.`);
     }
 
     return rule as MovementRule;
