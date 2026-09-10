@@ -17,12 +17,14 @@ const reading: AngleReading = {
 const rule: MovementRule = {
   id: "test-rule-1",
   angleName: "leftKneeFrontalDeviation",
+  captureView: "front",
   label: "Left frontal knee deviation",
   comparator: "greaterThan",
   threshold: 10,
   severity: "caution",
   sourceLabel: "Test-only supplied source",
   sourceUrl: "https://example.com/test-source",
+  sourceMeasurementMethod: "Test-only 2D frontal-plane method",
 };
 
 describe("evaluateMovementRules", () => {
@@ -31,6 +33,7 @@ describe("evaluateMovementRules", () => {
     expect(flag.excessDegrees).toBe(4);
     expect(flag.repIndex).toBe(4);
     expect(flag.message).toContain("4.0°");
+    expect(flag.sourceMeasurementMethod).toContain("2D");
   });
 
   it("emits no flag inside the configured rule", () => {
@@ -58,9 +61,29 @@ describe("parseMovementRules", () => {
   });
 
   it("rejects a threshold without a source URL", () => {
-    const unsourced: MovementRule = { ...rule };
+    const unsourced = { ...rule } as Partial<MovementRule>;
     delete unsourced.sourceUrl;
     expect(() => parseMovementRules([unsourced])).toThrow(/sourceUrl/);
+  });
+
+  it("rejects a rule without source measurement context", () => {
+    const missingMethod = { ...rule } as Partial<MovementRule>;
+    delete missingMethod.sourceMeasurementMethod;
+    expect(() => parseMovementRules([missingMethod])).toThrow(/sourceMeasurementMethod/);
+  });
+
+  it("rejects projection-incompatible metrics", () => {
+    expect(() => parseMovementRules([{ ...rule, captureView: "side" }])).toThrow(/not valid/);
+  });
+
+  it("rejects duplicate rule ids", () => {
+    expect(() => parseMovementRules([rule, { ...rule }])).toThrow(/Duplicate rule id/);
+  });
+
+  it("rejects non-http source URLs", () => {
+    expect(() => parseMovementRules([{ ...rule, sourceUrl: "file:///thresholds.pdf" }])).toThrow(
+      /http or https/,
+    );
   });
 });
 
