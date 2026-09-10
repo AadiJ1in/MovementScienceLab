@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://movementsciencelab.local/schemas/movement-rule.schema.json",
+  "title": "Movement Science Lab sourced movement-quality rules",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "angleName",
+      "captureView",
+      "label",
+      "comparator",
+      "severity",
+      "sourceLabel",
+      "sourceUrl",
+      "sourceMeasurementMethod"
+    ],
+    "properties": {
+      "id": { "type": "string", "minLength": 1 },
+      "angleName": {
+        "enum": [
+          "leftKneeFlexion",
+          "rightKneeFlexion",
+          "leftKneeFrontalDeviation",
+          "rightKneeFrontalDeviation",
+          "trunkLean",
+          "pelvicLineObliquity",
+          "leftShoulderElevation",
+          "rightShoulderElevation"
+        ]
+      },
+      "captureView": { "enum": ["front", "side"] },
+      "label": { "type": "string", "minLength": 1 },
+      "comparator": {
+        "enum": ["greaterThan", "absoluteGreaterThan", "lessThan", "outsideRange"]
+      },
+      "threshold": { "type": "number" },
+      "min": { "type": "number" },
+      "max": { "type": "number" },
+      "severity": { "enum": ["info", "caution", "high"] },
+      "sourceLabel": { "type": "string", "minLength": 1 },
+      "sourceUrl": { "type": "string", "format": "uri", "pattern": "^https?://" },
+      "sourceMeasurementMethod": { "type": "string", "minLength": 1 },
+      "notes": { "type": "string" }
+    },
+    "allOf": [
+      {
+        "if": { "properties": { "comparator": { "const": "outsideRange" } } },
+        "then": { "required": ["min", "max"] },
+        "else": { "required": ["threshold"] }
+      },
+      {
+        "if": { "properties": { "captureView": { "const": "front" } } },
+        "then": {
+          "properties": {
+            "angleName": {
+              "enum": [
+                "leftKneeFrontalDeviation",
+                "rightKneeFrontalDeviation",
+                "trunkLean",
+                "pelvicLineObliquity",
+                "leftShoulderElevation",
+                "rightShoulderElevation"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": { "properties": { "captureView": { "const": "side" } } },
+        "then": {
+          "properties": {
+            "angleName": {
+              "enum": [
+                "leftKneeFlexion",
+                "rightKneeFlexion",
+                "trunkLean",
+                "leftShoulderElevation",
+                "rightShoulderElevation"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  }
+}
