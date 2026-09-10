@@ -1,4 +1,9 @@
-import { computeAnglesForFrame, type AngleName, type AngleReading } from "./angles";
+import {
+  computeAnglesForFrame,
+  trunkLeanFromBestVisibleSide,
+  type AngleName,
+  type AngleReading,
+} from "./angles";
 import { MOVEMENT_GUIDANCE } from "@/lib/pose/camera-guidance";
 import type { CaptureView, MovementType, PoseFrame } from "@/lib/pose/types";
 
@@ -29,15 +34,25 @@ export function isAngleValidForMovement(angleName: AngleName, movement: Movement
 }
 
 /**
- * Filters generic 2D calculations to measurements that are interpretable in
- * the selected capture projection. This prevents a side-view hip-knee-ankle
- * angle from being presented as a frontal-plane knee-deviation metric, and
- * prevents front-view projection from being presented as sagittal knee flexion.
+ * Restricts 2D calculations to measurements that are interpretable in the
+ * selected capture projection. Side-view trunk lean is recomputed from the
+ * most visible shoulder/hip chain because the far side is expected to be
+ * partially occluded in a correctly positioned side-on capture.
  */
 export function computeAnglesForMovement(
   frame: PoseFrame,
   movement: MovementType,
 ): AngleReading[] {
+  const view = MOVEMENT_GUIDANCE[movement].view;
   const allowed = new Set<AngleName>(angleNamesForMovement(movement));
-  return computeAnglesForFrame(frame).filter((reading) => allowed.has(reading.angleName));
+  const generic = computeAnglesForFrame(frame).filter(
+    (reading) => allowed.has(reading.angleName) && !(view === "side" && reading.angleName === "trunkLean"),
+  );
+
+  if (view === "side") {
+    const sideTrunkLean = trunkLeanFromBestVisibleSide(frame);
+    if (sideTrunkLean) generic.push(sideTrunkLean);
+  }
+
+  return generic;
 }
