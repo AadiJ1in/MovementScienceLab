@@ -11,13 +11,16 @@ import type { MovementType } from "@/lib/pose/types";
 const INSERT_CHUNK_SIZE = 500;
 export const MEASUREMENT_VERSION = "mediapipe-2d-v1";
 
-async function insertInChunks(
+async function upsertInChunks(
   supabase: SupabaseClient,
   table: string,
   rows: Record<string, unknown>[],
+  onConflict: string,
 ) {
   for (let index = 0; index < rows.length; index += INSERT_CHUNK_SIZE) {
-    const { error } = await supabase.from(table).insert(rows.slice(index, index + INSERT_CHUNK_SIZE));
+    const chunk = rows.slice(index, index + INSERT_CHUNK_SIZE);
+    if (!chunk.length) continue;
+    const { error } = await supabase.from(table).upsert(chunk, { onConflict });
     if (error) throw error;
   }
 }
@@ -40,6 +43,11 @@ export async function createMovementSession(
     .eq("slug", protocol.captureMode)
     .maybeSingle();
   if (exerciseError) throw exerciseError;
+  if (!exercise?.id) {
+    throw new Error(
+      `Exercise configuration for ${protocol.captureMode} is missing. Apply all Supabase migrations before recording persisted sessions.`,
+    );
+  }
 
   const analysisConfig = {
     measurementVersion: MEASUREMENT_VERSION,
@@ -52,7 +60,7 @@ export async function createMovementSession(
     .from("movement_sessions")
     .insert({
       user_id: protocol.userId,
-      exercise_id: exercise?.id ?? null,
+      exercise_id: exercise.id,
       capture_mode: protocol.captureMode,
       analysis_config: analysisConfig,
       measurement_version: MEASUREMENT_VERSION,
@@ -76,7 +84,12 @@ export async function saveAngleSamples(
     value_degrees: reading.value,
     confidence: reading.confidence,
   }));
-  await insertInChunks(supabase, "angle_samples", rows);
+  await upsertInChunks(
+    supabase,
+    "angle_samples",
+    rows,
+    "session_id,frame_timestamp_ms,angle_name",
+  );
 }
 
 export async function saveRepSummaries(
@@ -91,7 +104,7 @@ export async function saveRepSummaries(
     ended_ms: rep.endedMs,
     angle_summary: rep.angleSummary,
   }));
-  await insertInChunks(supabase, "rep_summaries", rows);
+  await upsertInChunks(supabase, "rep_summaries", rows, "session_id,rep_index");
 }
 
 export async function saveMovementFlags(
@@ -115,7 +128,12 @@ export async function saveMovementFlags(
     source_measurement_method: flag.sourceMeasurementMethod,
     measurement_version: MEASUREMENT_VERSION,
   }));
-  await insertInChunks(supabase, "movement_flags", rows);
+  await upsertInChunks(
+    supabase,
+    "movement_flags",
+    rows,
+    "session_id,rule_id,frame_timestamp_ms",
+  );
 }
 
 export async function completeMovementSession(
