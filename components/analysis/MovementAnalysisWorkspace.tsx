@@ -129,9 +129,6 @@ export function MovementAnalysisWorkspace() {
       }
     }
 
-    // The current rep segmenter uses sagittal knee flexion, so it is only valid
-    // for side-view squats. Front-view squats remain explainable per-frame until
-    // a separately validated frontal-view rep signal is implemented.
     const usesKneeCycleReps = movement === "squat-side";
     if (usesKneeCycleReps && !segmenterRef.current) {
       const kneeCandidates = normalized
@@ -283,6 +280,7 @@ export function MovementAnalysisWorkspace() {
     ? activeRulesRef.current.length
     : rules.filter((rule) => ruleAppliesToMovement(rule, movement)).length;
   const usesKneeCycleReps = movement === "squat-side";
+  const captureView = MOVEMENT_GUIDANCE[movement].view;
 
   const videoOverlay = (
     <div className="max-w-[180px] rounded-xl bg-black/75 px-3 py-2 text-right text-white backdrop-blur sm:max-w-none sm:px-4 sm:py-3 sm:text-left">
@@ -365,7 +363,11 @@ export function MovementAnalysisWorkspace() {
         )}
 
         <div className="mt-6">
-          <ReferenceComparisonPanel angleName={selectedAngle} readings={referenceReadings} />
+          <ReferenceComparisonPanel
+            angleName={selectedAngle}
+            captureView={captureView}
+            readings={referenceReadings}
+          />
         </div>
       </section>
 
