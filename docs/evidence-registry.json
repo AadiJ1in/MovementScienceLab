@@ -1,13 +1,15 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "lastReviewed": "2026-09-10",
   "purpose": "Evidence registry for movement-quality assessment and research-only injury-association features. Entries do not automatically become runtime thresholds.",
   "policy": {
     "runtimeThresholdsRequireMeasurementCompatibility": true,
     "prospectiveInjuryClaimsRequireOutcomeLabeledEvidence": true,
     "systematicReviewsOverrideSingleStudyCertainty": true,
+    "conflictingProspectiveEvidenceMustBePreserved": true,
     "youtubeMayBeUsedForViewAugmentationNotClinicalGroundTruth": true,
-    "singleCamera2DIsNotInterchangeableWith3DMotionCapture": true
+    "singleCamera2DIsNotInterchangeableWith3DMotionCapture": true,
+    "multifactorialOutcomeModelsMustNotBeReducedToPoseOnlyRiskScores": true
   },
   "evidence": [
     {
@@ -87,6 +89,58 @@
       "runtimeUse": "research-only-context",
       "transferability": "incompatible",
       "limitations": "3D lab kinematics/kinetics and force data cannot be converted into a monocular 2D webcam threshold."
+    },
+    {
+      "id": "paterno-2010-second-acl",
+      "kind": "prospective-second-injury-model",
+      "movement": "drop-vertical-jump-and-postural-stability",
+      "sourceLabel": "Paterno et al. prospective second ACL injury study",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/20702858/",
+      "measurementMethod": "3D motion analysis during drop vertical jump plus postural stability testing",
+      "population": "56 athletes after ACL reconstruction followed for 12 months; 13 sustained a second ACL injury",
+      "signal": "A multifactorial model incorporating hip/knee mechanics and postural stability discriminated second ACL injury in the study cohort (C statistic 0.94; sensitivity 0.92; specificity 0.88).",
+      "runtimeUse": "research-only-context",
+      "transferability": "incompatible",
+      "limitations": "Small post-ACLR population, 3D kinetics and Biodex stability measurements are unavailable from the current webcam. The reported performance must not be transferred to this system."
+    },
+    {
+      "id": "krosshaug-2016-vdj-negative",
+      "kind": "prospective-negative-screening-evidence",
+      "movement": "vertical-drop-jump",
+      "sourceLabel": "Krosshaug et al. prospective cohort of elite female soccer and handball players",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/26867936/",
+      "measurementMethod": "Marker-based 3D vertical drop jump screening",
+      "population": "710 analyzed athletes; 42 new noncontact ACL injuries",
+      "signal": "Selected landing variables had poor screening discrimination; among athletes without prior injury, none of the tested variables were associated with increased ACL injury risk.",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high-as-negative-evidence",
+      "limitations": "Supports blocking simplistic landing-angle injury prediction even when sophisticated laboratory measures are available."
+    },
+    {
+      "id": "nilstad-2021-2d-negative",
+      "kind": "prospective-negative-screening-evidence",
+      "movement": "single-leg-squat-and-drop-jump",
+      "sourceLabel": "Nilstad et al. elite female athlete 2D screening study",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/33906580/",
+      "measurementMethod": "2D video measures of frontal-plane knee and hip control",
+      "population": "778 eligible elite female football/handball athletes; 56 future noncontact ACL injuries",
+      "signal": "Frontal-plane knee projection angle, medial knee position, lateral pelvic tilt and asymmetry did not discriminate future ACL injury.",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high",
+      "limitations": "Directly cautions against converting common 2D webcam frontal-plane measures into a future ACL injury prediction."
+    },
+    {
+      "id": "running-multidisciplinary-2026",
+      "kind": "prospective-multifactorial-injury-model",
+      "movement": "running",
+      "sourceLabel": "Multidisciplinary prediction of running-related injuries using machine learning",
+      "sourceUrl": "https://www.nature.com/articles/s41746-026-02413-y",
+      "measurementMethod": "Weekly prospective machine-learning dataset combining genetics, history, strength, biomechanics, body composition, nutrition, and training",
+      "population": "142 competitive endurance runners monitored for 12 months; 6,181 weekly samples",
+      "signal": "Multifactorial models achieved approximately 0.784 mean AUC for weekly running-related injury prediction.",
+      "runtimeUse": "research-design-context",
+      "transferability": "conceptual-only",
+      "limitations": "Demonstrates that useful prognostic modeling is multifactorial and still imperfect. It must not be reduced to webcam pose alone or used to claim universal injury prediction."
     },
     {
       "id": "nilstad-2020-meta-acl",
