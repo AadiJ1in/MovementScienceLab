@@ -35,7 +35,12 @@ jobs:
           ROOT=$(dirname "$(find .research-data/rehab24 -name annotations.csv -print -quit)")
           test -n "$ROOT"
           python ml/build_rehab24_squat_features.py "$ROOT" .research-output/rehab24-squat-features.csv
-      - name: Train subject-grouped interpretable model
+      - name: Benchmark candidate model families with subject-grouped CV
+        run: |
+          python ml/benchmark_models.py \
+            .research-output/rehab24-squat-features.csv \
+            .research-output/rehab24-squat-benchmark.json
+      - name: Train calibrated interpretable deployment candidate
         run: |
           python ml/train_interpretable_model.py \
             .research-output/rehab24-squat-features.csv \
@@ -44,9 +49,11 @@ jobs:
         run: |
           python - <<'PY'
           import json
-          p = json.load(open('.research-output/rehab24-squat-model.json'))
-          print(json.dumps(p['validation'], indent=2))
-          print(json.dumps(p['deploymentGate'], indent=2))
+          model = json.load(open('.research-output/rehab24-squat-model.json'))
+          benchmark = json.load(open('.research-output/rehab24-squat-benchmark.json'))
+          print(json.dumps(benchmark, indent=2))
+          print(json.dumps(model['validation'], indent=2))
+          print(json.dumps(model['deploymentGate'], indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
