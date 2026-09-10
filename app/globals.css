@@ -14,3 +14,28 @@ body {
   color: #18181b;
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Keep camera/video compositor layers below all guidance and consent UI.
+   This prevents Safari/Chromium hardware-video layers from visually covering
+   the camera-off/loading/error overlays and presenting as an unexplained
+   black rectangle. */
+[class*="aspect-video"] {
+  isolation: isolate;
+}
+
+[class*="aspect-video"] > video {
+  z-index: 0;
+  background: #18181b;
+}
+
+[class*="aspect-video"] > canvas {
+  z-index: 10;
+}
+
+[class*="aspect-video"] > div {
+  z-index: 20;
+}
+
+[class*="aspect-video"] > video:not([src]) {
+  opacity: 0;
+}
