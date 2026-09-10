@@ -178,7 +178,9 @@ export function MovementAnalysisWorkspace() {
       frameRepIndex,
     );
     setReadings((current) => [...current, ...normalized].slice(-MAX_LIVE_POINTS));
-    if (nextFlags.length) setFlags((current) => [...current, ...nextFlags]);
+    if (nextFlags.length) {
+      setFlags((current) => collapseMovementFlags([...current, ...nextFlags]));
+    }
   }
 
   async function startRecording() {
