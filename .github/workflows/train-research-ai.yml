@@ -45,36 +45,56 @@ jobs:
           python ml/train_interpretable_model.py \
             .research-output/rehab24-squat-features.csv \
             .research-output/rehab24-squat-model.json
-      - name: Build all-exercise kinematic features
+      - name: Build static all-exercise kinematic features
         run: |
           ROOT=$(dirname "$(find .research-data/rehab24 -name annotations.csv -print -quit)")
           python ml/build_rehab24_multiexercise_features.py \
             "$ROOT" \
             .research-output/rehab24-all-exercises.csv
-      - name: Train task-specific models for all supported exercises
+      - name: Train static task-specific models
         run: |
           python ml/train_multiexercise_models.py \
             .research-output/rehab24-all-exercises.csv \
             .research-output/rehab24-multiexercise-models.json
+      - name: Build phase-normalized temporal features
+        run: |
+          ROOT=$(dirname "$(find .research-data/rehab24 -name annotations.csv -print -quit)")
+          python ml/build_rehab24_temporal_features.py \
+            "$ROOT" \
+            .research-output/rehab24-temporal-features.csv
+      - name: Train temporal task-specific models
+        run: |
+          python ml/train_multiexercise_models.py \
+            .research-output/rehab24-temporal-features.csv \
+            .research-output/rehab24-temporal-models.json
+      - name: Compare static and temporal validation
+        run: |
+          python - <<'PY'
+          import json
+          static = json.load(open('.research-output/rehab24-multiexercise-models.json'))
+          temporal = json.load(open('.research-output/rehab24-temporal-models.json'))
+          def compact(payload):
+              return {
+                  m['exerciseName']: {
+                      'auroc': m.get('validation', {}).get('auroc'),
+                      'balancedAccuracy': m.get('validation', {}).get('balancedAccuracy'),
+                      'sensitivity': m.get('validation', {}).get('sensitivity'),
+                      'specificity': m.get('validation', {}).get('specificity'),
+                      'nFeatures': len(m.get('features', [])),
+                  }
+                  for m in payload['models'] if m.get('status') == 'trained-research-only'
+              }
+          print(json.dumps({'static': compact(static), 'temporal': compact(temporal)}, indent=2))
+          PY
       - name: Print validation report
         run: |
           python - <<'PY'
           import json
           model = json.load(open('.research-output/rehab24-squat-model.json'))
           benchmark = json.load(open('.research-output/rehab24-squat-benchmark.json'))
-          multi = json.load(open('.research-output/rehab24-multiexercise-models.json'))
           print(json.dumps(benchmark, indent=2))
           print(json.dumps(model['validation'], indent=2))
-          print(json.dumps({
-              'models': [
-                  {
-                      'exercise': m.get('exerciseName'),
-                      'status': m.get('status'),
-                      'validation': m.get('validation'),
-                  }
-                  for m in multi['models']
-              ]
-          }, indent=2))
+          print(json.dumps(model['deploymentGate'], indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
