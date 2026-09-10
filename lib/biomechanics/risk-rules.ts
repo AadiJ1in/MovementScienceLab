@@ -118,25 +118,25 @@ export function evaluateMovementRules(
   return flags;
 }
 
-/** Keep every unassigned frame flag, but reduce rep-associated flags to the worst
- * exceedance for each rule/rep pair. */
+/**
+ * Reduce high-frequency threshold crossings to one peak event per rule/rep.
+ * Frames that cannot yet be assigned to a rep are reduced to one peak per rule
+ * for the session. This keeps the UI/database bounded while preserving the
+ * most severe explainable event and its original timestamp/value.
+ */
 export function collapseMovementFlags(flags: MovementFlag[]): MovementFlag[] {
-  const result: MovementFlag[] = [];
-  const repWorst = new Map<string, MovementFlag>();
+  const worstByWindow = new Map<string, MovementFlag>();
 
   for (const flag of flags) {
-    if (flag.repIndex === undefined) {
-      result.push(flag);
-      continue;
-    }
-    const key = `${flag.ruleId}:${flag.repIndex}`;
-    const current = repWorst.get(key);
+    const windowKey = flag.repIndex === undefined ? "session" : `rep:${flag.repIndex}`;
+    const key = `${flag.ruleId}:${windowKey}`;
+    const current = worstByWindow.get(key);
     if (!current || flag.excessDegrees > current.excessDegrees) {
-      repWorst.set(key, flag);
+      worstByWindow.set(key, flag);
     }
   }
 
-  return [...result, ...repWorst.values()].sort(
+  return [...worstByWindow.values()].sort(
     (a, b) => a.frameTimestamp - b.frameTimestamp,
   );
 }
