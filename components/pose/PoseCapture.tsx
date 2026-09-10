@@ -30,6 +30,7 @@ const MOVEMENTS: MovementType[] = [
 type PoseCaptureProps = {
   onFrame?: (frame: PoseFrame | null) => void;
   onMovementChange?: (movement: MovementType) => void;
+  onCaptureReadyChange?: (ready: boolean) => void;
   movementLocked?: boolean;
   videoOverlay?: ReactNode;
 };
@@ -37,6 +38,7 @@ type PoseCaptureProps = {
 export function PoseCapture({
   onFrame,
   onMovementChange,
+  onCaptureReadyChange,
   movementLocked = false,
   videoOverlay,
 }: PoseCaptureProps) {
@@ -46,21 +48,33 @@ export function PoseCapture({
   const animationFrameRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const onFrameRef = useRef(onFrame);
+  const onCaptureReadyChangeRef = useRef(onCaptureReadyChange);
   const lastVideoTimeRef = useRef(-1);
 
   const [movement, setMovement] = useState<MovementType>("squat-front");
   const [poseFrame, setPoseFrame] = useState<PoseFrame | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [delegate, setDelegate] = useState<"GPU" | "CPU" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     onFrameRef.current = onFrame;
   }, [onFrame]);
 
+  useEffect(() => {
+    onCaptureReadyChangeRef.current = onCaptureReadyChange;
+  }, [onCaptureReadyChange]);
+
   const guidance = useMemo(
     () => evaluateCameraGuidance(poseFrame, movement),
     [poseFrame, movement],
   );
+
+  const captureReady = status === "ready" && guidance.ready;
+
+  useEffect(() => {
+    onCaptureReadyChangeRef.current?.(captureReady);
+  }, [captureReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,22 +83,45 @@ export function PoseCapture({
       try {
         setStatus("loading");
         setError(null);
+        setDelegate(null);
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+          throw new Error("This browser does not expose webcam capture APIs.");
+        }
 
         const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
         if (cancelled) return;
 
-        const landmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: POSE_MODEL,
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numPoses: 1,
-          minPoseDetectionConfidence: 0.5,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-          outputSegmentationMasks: false,
-        });
+        let landmarker: PoseLandmarker;
+        try {
+          landmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: POSE_MODEL,
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.5,
+            minPosePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+            outputSegmentationMasks: false,
+          });
+          setDelegate("GPU");
+        } catch {
+          landmarker = await PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: POSE_MODEL,
+              delegate: "CPU",
+            },
+            runningMode: "VIDEO",
+            numPoses: 1,
+            minPoseDetectionConfidence: 0.5,
+            minPosePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+            outputSegmentationMasks: false,
+          });
+          setDelegate("CPU");
+        }
 
         if (cancelled) {
           landmarker.close();
@@ -115,21 +152,20 @@ export function PoseCapture({
         await video.play();
         setStatus("ready");
 
-        const drawingUtils = canvasRef.current
-          ? new DrawingUtils(canvasRef.current.getContext("2d")!)
-          : null;
+        const context = canvasRef.current?.getContext("2d") ?? null;
+        const drawingUtils = context ? new DrawingUtils(context) : null;
 
         const processFrame = () => {
           if (cancelled) return;
 
           const activeVideo = videoRef.current;
           const canvas = canvasRef.current;
-          const landmarker = landmarkerRef.current;
+          const activeLandmarker = landmarkerRef.current;
 
           if (
             activeVideo &&
             canvas &&
-            landmarker &&
+            activeLandmarker &&
             activeVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
           ) {
             if (activeVideo.currentTime !== lastVideoTimeRef.current) {
@@ -144,7 +180,7 @@ export function PoseCapture({
                 canvas.height = activeVideo.videoHeight;
               }
 
-              const result = landmarker.detectForVideo(activeVideo, timestamp);
+              const result = activeLandmarker.detectForVideo(activeVideo, timestamp);
               drawResult(result, drawingUtils, canvas);
 
               const landmarks = result.landmarks[0];
@@ -171,17 +207,22 @@ export function PoseCapture({
           caught instanceof Error ? caught.message : "Unable to initialize pose capture.";
         setError(message);
         setStatus("error");
+        setPoseFrame(null);
+        onFrameRef.current?.(null);
+        onCaptureReadyChangeRef.current?.(false);
       }
     }
 
-    initialize();
+    void initialize();
 
     return () => {
       cancelled = true;
+      onCaptureReadyChangeRef.current?.(false);
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
     };
@@ -215,7 +256,9 @@ export function PoseCapture({
           <div className="absolute left-4 top-4 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
             {status === "loading" && "Loading pose model…"}
             {status === "ready" &&
-              (poseFrame ? `${poseFrame.trustedKeypointCount}/33 trusted` : "Finding pose…")}
+              (poseFrame
+                ? `${poseFrame.trustedKeypointCount}/33 trusted · ${delegate ?? "runtime"}`
+                : `Finding pose…${delegate ? ` · ${delegate}` : ""}`)}
             {status === "error" && "Camera unavailable"}
           </div>
 
@@ -262,13 +305,13 @@ export function PoseCapture({
 
         <div
           className={`rounded-2xl border p-4 ${
-            guidance.ready
+            captureReady
               ? "border-emerald-200 bg-emerald-50"
               : "border-amber-200 bg-amber-50"
           }`}
         >
           <p className="text-sm font-semibold text-zinc-950">
-            {guidance.ready ? "Capture position usable" : "Adjust camera/body position"}
+            {captureReady ? "Capture position usable" : "Adjust camera/body position"}
           </p>
           <ul className="mt-2 space-y-1 text-sm leading-5 text-zinc-700">
             {guidance.messages.map((message) => (
@@ -282,6 +325,12 @@ export function PoseCapture({
           least {KEYPOINT_VISIBILITY_THRESHOLD.toFixed(1)}. Low-visibility landmarks remain
           available in the frame payload but must not be used for downstream angle calculations.
         </div>
+
+        {delegate === "CPU" && status === "ready" && (
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-5 text-zinc-600">
+            GPU acceleration was unavailable, so pose estimation is running on the CPU. Measurement semantics are unchanged, but frame throughput may be lower.
+          </div>
+        )}
 
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
