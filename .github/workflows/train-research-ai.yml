@@ -52,6 +52,7 @@ jobs:
         with:
           name: rehab24-squat-research-model
           path: .research-output/
+          include-hidden-files: true
           retention-days: 14
 
 # REHAB24-6 is licensed for academic/non-profit noncommercial research use.
