@@ -6,7 +6,12 @@ import { PoseCapture } from "@/components/pose/PoseCapture";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { RuleConfigurationPanel } from "./RuleConfigurationPanel";
 import { ReferenceComparisonPanel } from "./ReferenceComparisonPanel";
-import { computeAnglesForFrame, type AngleName, type AngleReading } from "@/lib/biomechanics/angles";
+import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
+import {
+  angleNamesForMovement,
+  computeAnglesForMovement,
+  isAngleValidForMovement,
+} from "@/lib/biomechanics/measurement-profile";
 import {
   collapseMovementFlags,
   DEFAULT_MOVEMENT_RULES,
@@ -36,16 +41,6 @@ import { AngleTimeSeriesChart, SessionTrendChart } from "./AngleCharts";
 
 const MAX_LIVE_POINTS = 9000;
 const STORAGE_INTERVAL_MS = 100;
-const ANGLES: AngleName[] = [
-  "leftKneeFlexion",
-  "rightKneeFlexion",
-  "leftKneeFrontalDeviation",
-  "rightKneeFrontalDeviation",
-  "trunkLean",
-  "pelvicLineObliquity",
-  "leftShoulderElevation",
-  "rightShoulderElevation",
-];
 
 export function MovementAnalysisWorkspace() {
   const [isRecording, setIsRecording] = useState(false);
@@ -54,7 +49,7 @@ export function MovementAnalysisWorkspace() {
   const [rules, setRules] = useState<MovementRule[]>(DEFAULT_MOVEMENT_RULES);
   const [reps, setReps] = useState<RepSummary[]>([]);
   const [live, setLive] = useState<AngleReading[]>([]);
-  const [selectedAngle, setSelectedAngle] = useState<AngleName>("leftKneeFlexion");
+  const [selectedAngle, setSelectedAngle] = useState<AngleName>("leftKneeFrontalDeviation");
   const [movement, setMovement] = useState<MovementType>("squat-front");
   const [user, setUser] = useState<User | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -68,10 +63,17 @@ export function MovementAnalysisWorkspace() {
   const storageReadingsRef = useRef<AngleReading[]>([]);
   const storageBucketRef = useRef<Map<AngleName, number>>(new Map());
   const userChange = useCallback((nextUser: User | null) => setUser(nextUser), []);
+  const availableAngles = useMemo(() => [...angleNamesForMovement(movement)], [movement]);
 
   useEffect(() => {
     recordingRef.current = isRecording;
   }, [isRecording]);
+
+  useEffect(() => {
+    if (!availableAngles.includes(selectedAngle)) {
+      setSelectedAngle(availableAngles[0]);
+    }
+  }, [availableAngles, selectedAngle]);
 
   const refreshTrend = useCallback(async () => {
     if (!hasSupabaseConfig() || !user) {
@@ -98,7 +100,7 @@ export function MovementAnalysisWorkspace() {
       return;
     }
 
-    const next = computeAnglesForFrame(frame);
+    const next = computeAnglesForMovement(frame, movement);
     setLive(next);
     if (!recordingRef.current) return;
 
@@ -117,7 +119,10 @@ export function MovementAnalysisWorkspace() {
       }
     }
 
-    const usesKneeCycleReps = movement === "squat-front" || movement === "squat-side";
+    // The current rep segmenter uses sagittal knee flexion, so it is only valid
+    // for side-view squats. Front-view squats remain explainable per-frame until
+    // a separately validated frontal-view rep signal is implemented.
+    const usesKneeCycleReps = movement === "squat-side";
     if (usesKneeCycleReps && !segmenterRef.current) {
       const kneeCandidates = normalized
         .filter(
@@ -159,7 +164,11 @@ export function MovementAnalysisWorkspace() {
   }
 
   async function startRecording() {
-    const protocolRules = rules.map((rule) => ({ ...rule }));
+    const protocolRules = rules
+      .filter((rule) => isAngleValidForMovement(rule.angleName, movement))
+      .map((rule) => ({ ...rule }));
+    const excludedRuleCount = rules.length - protocolRules.length;
+
     activeRulesRef.current = protocolRules;
     firstTimestampRef.current = null;
     segmenterRef.current = null;
@@ -171,14 +180,18 @@ export function MovementAnalysisWorkspace() {
     setSessionId(null);
     setIsRecording(true);
 
+    const projectionNote = excludedRuleCount
+      ? ` ${excludedRuleCount} rule${excludedRuleCount === 1 ? "" : "s"} excluded because the metric is not valid in this camera projection.`
+      : "";
+
     if (!hasSupabaseConfig()) {
       setPersistenceStatus(
-        `Recording locally with ${protocolRules.length} sourced rules; Supabase is not configured.`,
+        `Recording locally with ${protocolRules.length} sourced rules.${projectionNote}`,
       );
       return;
     }
     if (!user) {
-      setPersistenceStatus("Recording locally; sign in before starting to save this session.");
+      setPersistenceStatus(`Recording locally; sign in before starting to save this session.${projectionNote}`);
       return;
     }
 
@@ -192,11 +205,11 @@ export function MovementAnalysisWorkspace() {
       });
       setSessionId(id);
       setPersistenceStatus(
-        `Recording ${movement}; database session created with ${protocolRules.length} sourced rules snapshotted.`,
+        `Recording ${movement}; database session created with ${protocolRules.length} projection-compatible sourced rules snapshotted.${projectionNote}`,
       );
     } catch (error) {
       setPersistenceStatus(
-        `Recording locally; database session could not be created: ${error instanceof Error ? error.message : "unknown error"}`,
+        `Recording locally; database session could not be created: ${error instanceof Error ? error.message : "unknown error"}.${projectionNote}`,
       );
     }
   }
@@ -256,8 +269,10 @@ export function MovementAnalysisWorkspace() {
     return [{ sessionLabel: "Current", value: Number(max.toFixed(2)) }];
   }, [selectedReadings]);
   const sessionTrend = [...historicalTrend, ...currentSessionTrend];
-  const displayedRuleCount = isRecording ? activeRulesRef.current.length : rules.length;
-  const usesKneeCycleReps = movement === "squat-front" || movement === "squat-side";
+  const displayedRuleCount = isRecording
+    ? activeRulesRef.current.length
+    : rules.filter((rule) => isAngleValidForMovement(rule.angleName, movement)).length;
+  const usesKneeCycleReps = movement === "squat-side";
 
   const videoOverlay = (
     <div className="max-w-[180px] rounded-xl bg-black/75 px-3 py-2 text-right text-white backdrop-blur sm:max-w-none sm:px-4 sm:py-3 sm:text-left">
@@ -292,7 +307,7 @@ export function MovementAnalysisWorkspace() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Session capture</p>
             <h2 className="mt-1 text-xl font-semibold text-zinc-950">Movement-quality analysis</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              {movement} · {usesKneeCycleReps ? `Detected reps: ${reps.length}` : "per-frame analysis; squat rep segmentation is not applied"}
+              {movement} · {usesKneeCycleReps ? `Detected reps: ${reps.length}` : "per-frame analysis; sagittal knee-cycle rep segmentation is not valid for this capture mode"}
             </p>
           </div>
           {!isRecording ? (
@@ -313,12 +328,12 @@ export function MovementAnalysisWorkspace() {
             onChange={(event) => setSelectedAngle(event.target.value as AngleName)}
             className="rounded-xl border border-zinc-300 px-3 py-2 text-sm"
           >
-            {ANGLES.map((name) => <option key={name}>{name}</option>)}
+            {availableAngles.map((name) => <option key={name}>{name}</option>)}
           </select>
           <span className="text-xs text-zinc-500">
             {displayedRuleCount === 0
-              ? "No literature thresholds configured; biomechanical flags are disabled."
-              : `${displayedRuleCount} sourced rules active for this ${isRecording ? "recording" : "configuration"}.`}
+              ? "No projection-compatible literature thresholds configured; biomechanical flags are disabled."
+              : `${displayedRuleCount} projection-compatible sourced rules active for this ${isRecording ? "recording" : "configuration"}.`}
           </span>
         </div>
 
