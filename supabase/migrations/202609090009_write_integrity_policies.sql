@@ -31,7 +31,7 @@ with check (
     where s.id = session_id
       and s.user_id = (select auth.uid())
   )
-  and rep_index is null or rep_index >= 1
+  and (rep_index is null or rep_index >= 1)
   and capture_view in ('front', 'side')
   and source_url ~ '^https?://'
   and length(btrim(source_measurement_method)) > 0
