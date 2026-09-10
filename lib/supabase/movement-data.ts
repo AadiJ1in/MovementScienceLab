@@ -9,6 +9,7 @@ import type { PersistableRepSummary } from "@/lib/biomechanics/session-aggregati
 import type { MovementType } from "@/lib/pose/types";
 
 const INSERT_CHUNK_SIZE = 500;
+export const MEASUREMENT_VERSION = "mediapipe-2d-v1";
 
 async function insertInChunks(
   supabase: SupabaseClient,
@@ -33,13 +34,15 @@ export async function createMovementSession(
   supabase: SupabaseClient,
   protocol: SessionProtocol,
 ) {
-  const { data: exercise } = await supabase
+  const { data: exercise, error: exerciseError } = await supabase
     .from("exercises")
     .select("id")
     .eq("slug", protocol.captureMode)
     .maybeSingle();
+  if (exerciseError) throw exerciseError;
 
   const analysisConfig = {
+    measurementVersion: MEASUREMENT_VERSION,
     keypointVisibilityThreshold: protocol.keypointVisibilityThreshold,
     storageIntervalMs: protocol.storageIntervalMs,
     rules: protocol.rules,
@@ -52,7 +55,7 @@ export async function createMovementSession(
       exercise_id: exercise?.id ?? null,
       capture_mode: protocol.captureMode,
       analysis_config: analysisConfig,
-      measurement_version: "mediapipe-2d-v1",
+      measurement_version: MEASUREMENT_VERSION,
       status: "recording",
     })
     .select("id")
@@ -102,12 +105,15 @@ export async function saveMovementFlags(
     frame_timestamp_ms: flag.frameTimestamp,
     rule_id: flag.ruleId,
     angle_name: flag.angleName,
+    capture_view: flag.captureView,
     measured_value_degrees: flag.measuredValue,
     excess_degrees: flag.excessDegrees,
     severity: flag.severity,
     message: flag.message,
     source_label: flag.sourceLabel,
-    source_url: flag.sourceUrl ?? null,
+    source_url: flag.sourceUrl,
+    source_measurement_method: flag.sourceMeasurementMethod,
+    measurement_version: MEASUREMENT_VERSION,
   }));
   await insertInChunks(supabase, "movement_flags", rows);
 }
