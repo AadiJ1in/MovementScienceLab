@@ -268,7 +268,7 @@ export function MovementAnalysisWorkspace() {
 
   const referenceReadings = useMemo(() => {
     const lastRep = reps.at(-1);
-    if (!lastRep) return selectedReadings;
+    if (!lastRep) return [];
     return selectedReadings.filter(
       (reading) =>
         reading.frameTimestamp >= lastRep.startedMs && reading.frameTimestamp <= lastRep.endedMs,
@@ -373,6 +373,11 @@ export function MovementAnalysisWorkspace() {
             captureView={captureView}
             readings={referenceReadings}
           />
+          {reps.length === 0 && (
+            <p className="mt-2 text-xs text-zinc-500">
+              DTW scoring is disabled until a completed rep window is available. The current validated rep segmenter is limited to side-view squats.
+            </p>
+          )}
         </div>
       </section>
 
