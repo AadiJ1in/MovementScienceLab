@@ -55,6 +55,8 @@ function ruleAppliesToMovement(rule: MovementRule, movement: MovementType) {
 export function MovementAnalysisWorkspace() {
   const [isRecording, setIsRecording] = useState(false);
   const [captureReady, setCaptureReady] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveRetryAvailable, setSaveRetryAvailable] = useState(false);
   const [readings, setReadings] = useState<AngleReading[]>([]);
   const [flags, setFlags] = useState<MovementFlag[]>([]);
   const [rules, setRules] = useState<MovementRule[]>(DEFAULT_MOVEMENT_RULES);
@@ -184,6 +186,12 @@ export function MovementAnalysisWorkspace() {
   }
 
   async function startRecording() {
+    if (saveRetryAvailable || isSaving) {
+      setPersistenceStatus(
+        "A prior persisted session still needs to be saved. Retry that save before starting another recording.",
+      );
+      return;
+    }
     if (!captureReady) {
       setPersistenceStatus(
         "Recording was not started. Adjust the camera/body position until capture guidance reports a usable pose.",
@@ -205,6 +213,7 @@ export function MovementAnalysisWorkspace() {
     setFlags([]);
     setReps([]);
     setSessionId(null);
+    setSaveRetryAvailable(false);
     setIsRecording(true);
 
     const projectionNote = excludedRuleCount
@@ -241,6 +250,36 @@ export function MovementAnalysisWorkspace() {
     }
   }
 
+  async function persistCurrentSession(id: string) {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveRetryAvailable(false);
+
+    try {
+      setPersistenceStatus("Saving session…");
+      const supabase = createBrowserSupabaseClient();
+      const sampled = storageReadingsRef.current;
+      const repAggregates = aggregateReps(reps, sampled);
+      const persistedFlags = collapseMovementFlags(flags);
+      await saveAngleSamples(supabase, id, sampled);
+      await saveRepSummaries(supabase, id, repAggregates);
+      await saveMovementFlags(supabase, id, persistedFlags);
+      await completeMovementSession(supabase, id);
+      setPersistenceStatus(
+        `Saved ${repAggregates.length} reps, ${sampled.length} downsampled angle samples, and ${persistedFlags.length} explainable peak flags.`,
+      );
+      setSessionId(null);
+      await refreshTrend();
+    } catch (error) {
+      setSaveRetryAvailable(true);
+      setPersistenceStatus(
+        `Persistence failed: ${error instanceof Error ? error.message : "unknown error"}. The captured data remains in this page; use Retry save before starting another session.`,
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function stopRecording() {
     setIsRecording(false);
     recordingRef.current = false;
@@ -250,25 +289,7 @@ export function MovementAnalysisWorkspace() {
       return;
     }
 
-    try {
-      setPersistenceStatus("Saving session…");
-      const supabase = createBrowserSupabaseClient();
-      const sampled = storageReadingsRef.current;
-      const repAggregates = aggregateReps(reps, sampled);
-      const persistedFlags = collapseMovementFlags(flags);
-      await saveAngleSamples(supabase, sessionId, sampled);
-      await saveRepSummaries(supabase, sessionId, repAggregates);
-      await saveMovementFlags(supabase, sessionId, persistedFlags);
-      await completeMovementSession(supabase, sessionId);
-      setPersistenceStatus(
-        `Saved ${repAggregates.length} reps, ${sampled.length} downsampled angle samples, and ${persistedFlags.length} explainable flags.`,
-      );
-      await refreshTrend();
-    } catch (error) {
-      setPersistenceStatus(
-        `Session stopped, but persistence failed: ${error instanceof Error ? error.message : "unknown error"}. The captured data remains in this page until it is refreshed.`,
-      );
-    }
+    await persistCurrentSession(sessionId);
   }
 
   const liveSelected = live.find((reading) => reading.angleName === selectedAngle);
@@ -301,6 +322,15 @@ export function MovementAnalysisWorkspace() {
     : rules.filter((rule) => ruleAppliesToMovement(rule, movement)).length;
   const usesKneeCycleReps = movement === "squat-side";
   const captureView = MOVEMENT_GUIDANCE[movement].view;
+
+  const startDisabled = !captureReady || isSaving || saveRetryAvailable;
+  const startLabel = saveRetryAvailable
+    ? "Retry save before new session"
+    : isSaving
+      ? "Saving…"
+      : captureReady
+        ? "Start recording"
+        : "Position camera to start";
 
   const videoOverlay = (
     <div className="max-w-[180px] rounded-xl bg-black/75 px-3 py-2 text-right text-white backdrop-blur sm:max-w-none sm:px-4 sm:py-3 sm:text-left">
@@ -341,19 +371,34 @@ export function MovementAnalysisWorkspace() {
           </div>
           {!isRecording ? (
             <button
-              onClick={startRecording}
-              disabled={!captureReady}
+              onClick={() => void startRecording()}
+              disabled={startDisabled}
               className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
-              {captureReady ? "Start recording" : "Position camera to start"}
+              {startLabel}
             </button>
           ) : (
-            <button onClick={stopRecording} className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white">Stop & save</button>
+            <button
+              onClick={() => void stopRecording()}
+              disabled={isSaving}
+              className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+            >
+              Stop & save
+            </button>
           )}
         </div>
 
-        <div className="mt-4 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-          {persistenceStatus}
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          <span>{persistenceStatus}</span>
+          {saveRetryAvailable && sessionId && (
+            <button
+              onClick={() => void persistCurrentSession(sessionId)}
+              disabled={isSaving}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving ? "Retrying…" : "Retry save"}
+            </button>
+          )}
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
