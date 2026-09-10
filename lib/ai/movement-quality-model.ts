@@ -20,7 +20,7 @@ export type MovementQualityFeatureName =
 export type MovementQualityFeatures = Record<MovementQualityFeatureName, number | null>;
 
 export type MovementQualityModelArtifact = {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.0" | "1.1.0";
   modelType: "movement-quality-deviation-classifier";
   clinicalClaim: "none";
   positiveClass: string;
@@ -41,6 +41,17 @@ export type MovementQualityModelArtifact = {
     method: string;
     intercept: number;
     coefficient: number;
+  };
+  decisionPolicy?: {
+    threshold: number;
+    selectionMethod: string;
+    uncertaintyHalfWidth: number;
+  };
+  domainGate?: {
+    method: "max-absolute-standardized-feature";
+    maxAbsStandardizedValue: number;
+    trainingQuantile: number;
+    maxMissingFraction: number;
   };
   validation: {
     splitUnit: "subject";
@@ -67,7 +78,9 @@ export type MovementQualityInference = {
     standardizedValue: number;
     logitContribution: number;
   }>;
-  label: "reference-like" | "deviation-like";
+  label: "reference-like" | "deviation-like" | "uncertain";
+  outOfDomain: boolean;
+  uncertaintyReasons: string[];
   interpretation: string;
 };
 
@@ -111,18 +124,21 @@ export function inferMovementQuality(
   }
 
   let rawLogit = interpretableBaseline.intercept;
+  let missingCount = 0;
+  let maxAbsStandardizedValue = 0;
   const featureContributions: MovementQualityInference["featureContributions"] = [];
 
   features.forEach((feature, index) => {
     const observed = values[feature];
-    const imputed = observed === null || !Number.isFinite(observed)
-      ? preprocessing.medians[index]
-      : observed;
+    const missing = observed === null || !Number.isFinite(observed);
+    if (missing) missingCount += 1;
+    const imputed = missing ? preprocessing.medians[index] : observed;
     const scale = preprocessing.scales[index];
     if (!Number.isFinite(scale) || scale <= 0) {
       throw new Error(`Invalid model scale for ${feature}.`);
     }
-    const standardizedValue = (imputed - preprocessing.means[index]) / scale;
+    const standardizedValue = ((imputed as number) - preprocessing.means[index]) / scale;
+    maxAbsStandardizedValue = Math.max(maxAbsStandardizedValue, Math.abs(standardizedValue));
     const coefficient = interpretableBaseline.coefficients[feature];
     if (coefficient === undefined || !Number.isFinite(coefficient)) {
       throw new Error(`Missing model coefficient for ${feature}.`);
@@ -144,16 +160,48 @@ export function inferMovementQuality(
     (a, b) => Math.abs(b.logitContribution) - Math.abs(a.logitContribution),
   );
 
-  const label = deviationProbability >= 0.5 ? "deviation-like" : "reference-like";
+  const threshold = artifact.decisionPolicy?.threshold ?? 0.5;
+  const uncertaintyHalfWidth = artifact.decisionPolicy?.uncertaintyHalfWidth ?? 0;
+  const uncertaintyReasons: string[] = [];
+  let outOfDomain = false;
+
+  if (artifact.domainGate) {
+    const missingFraction = features.length ? missingCount / features.length : 1;
+    if (missingFraction > artifact.domainGate.maxMissingFraction) {
+      outOfDomain = true;
+      uncertaintyReasons.push(
+        `Too many model inputs are missing (${Math.round(missingFraction * 100)}%).`,
+      );
+    }
+    if (maxAbsStandardizedValue > artifact.domainGate.maxAbsStandardizedValue) {
+      outOfDomain = true;
+      uncertaintyReasons.push("One or more measured features fall outside the learned training distribution.");
+    }
+  }
+
+  if (Math.abs(deviationProbability - threshold) <= uncertaintyHalfWidth) {
+    uncertaintyReasons.push("The model score falls inside its configured gray zone around the development cutoff.");
+  }
+
+  const label = outOfDomain || uncertaintyReasons.length > 0
+    ? "uncertain"
+    : deviationProbability >= threshold
+      ? "deviation-like"
+      : "reference-like";
+
+  const interpretation = label === "uncertain"
+    ? "The model does not have enough in-domain evidence to classify this repetition confidently. Re-capture under the validated protocol or request human review. This is not an injury prediction or diagnosis."
+    : label === "deviation-like"
+      ? "This repetition resembles non-optimal/deviation examples in the validated training domain. It is not an injury prediction or diagnosis."
+      : "This repetition resembles reference/correct examples in the validated training domain. It does not establish that the movement is injury-free.";
 
   return {
     deviationProbability,
     referenceProbability: 1 - deviationProbability,
     featureContributions,
     label,
-    interpretation:
-      label === "deviation-like"
-        ? "This repetition resembles non-optimal/deviation examples in the validated training domain. It is not an injury prediction or diagnosis."
-        : "This repetition resembles reference/correct examples in the validated training domain. It does not establish that the movement is injury-free.",
+    outOfDomain,
+    uncertaintyReasons,
+    interpretation,
   };
 }
