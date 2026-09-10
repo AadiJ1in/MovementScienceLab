@@ -9,17 +9,12 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    average_precision_score,
-    brier_score_loss,
-    confusion_matrix,
-    roc_auc_score,
-)
+from sklearn.metrics import average_precision_score, brier_score_loss, confusion_matrix, roc_auc_score
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit, cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-FEATURES = [
+CANDIDATE_FEATURES = [
     "left_knee_flexion_min",
     "left_knee_flexion_max",
     "left_knee_flexion_range",
@@ -40,27 +35,15 @@ FEATURES = [
 ]
 
 
-def build_pipeline() -> Pipeline:
-    numeric = Pipeline(
-        steps=[
-            ("impute", SimpleImputer(strategy="median")),
-            ("scale", StandardScaler()),
-        ]
-    )
-    preprocess = ColumnTransformer(
-        transformers=[("numeric", numeric, FEATURES)], remainder="drop"
-    )
-    classifier = LogisticRegression(
-        penalty="l2",
-        class_weight="balanced",
-        max_iter=5000,
-        random_state=42,
-    )
+def build_pipeline(features: list[str]) -> Pipeline:
+    numeric = Pipeline(steps=[("impute", SimpleImputer(strategy="median")), ("scale", StandardScaler())])
+    preprocess = ColumnTransformer(transformers=[("numeric", numeric, features)], remainder="drop")
+    classifier = LogisticRegression(penalty="l2", class_weight="balanced", max_iter=5000, random_state=42)
     return Pipeline(steps=[("preprocess", preprocess), ("classifier", classifier)])
 
 
-def validate_columns(df: pd.DataFrame) -> None:
-    required = {"subject_id", "label", *FEATURES}
+def validate_columns(df: pd.DataFrame) -> list[str]:
+    required = {"subject_id", "label", *CANDIDATE_FEATURES}
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
@@ -69,6 +52,11 @@ def validate_columns(df: pd.DataFrame) -> None:
         raise ValueError("label must contain both 0 (reference/correct) and 1 (deviation/non-optimal).")
     if df["subject_id"].nunique() < 6:
         raise ValueError("At least 6 distinct subjects are required for grouped validation.")
+
+    observed = [feature for feature in CANDIDATE_FEATURES if df[feature].notna().any()]
+    if len(observed) < 3:
+        raise ValueError("At least three observed biomechanical features are required.")
+    return observed
 
 
 def metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float = 0.5) -> dict:
@@ -86,66 +74,47 @@ def metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float = 0.
     }
 
 
-def platt_fit(raw_probabilities: np.ndarray, y: np.ndarray) -> LogisticRegression:
-    eps = 1e-6
-    clipped = np.clip(raw_probabilities, eps, 1 - eps)
-    logits = np.log(clipped / (1 - clipped)).reshape(-1, 1)
-    calibrator = LogisticRegression(max_iter=2000, random_state=42)
-    calibrator.fit(logits, y)
-    return calibrator
-
-
-def platt_apply(calibrator: LogisticRegression, raw_probabilities: np.ndarray) -> np.ndarray:
-    eps = 1e-6
-    clipped = np.clip(raw_probabilities, eps, 1 - eps)
-    logits = np.log(clipped / (1 - clipped)).reshape(-1, 1)
-    return calibrator.predict_proba(logits)[:, 1]
+def prob_to_logit(probabilities: np.ndarray) -> np.ndarray:
+    clipped = np.clip(probabilities, 1e-6, 1 - 1e-6)
+    return np.log(clipped / (1 - clipped))
 
 
 def fit_and_export(input_csv: Path, output_json: Path) -> None:
     df = pd.read_csv(input_csv)
-    validate_columns(df)
+    features = validate_columns(df)
+    unavailable_features = [feature for feature in CANDIDATE_FEATURES if feature not in features]
 
-    X = df[FEATURES]
+    X = df[features]
     y = df["label"].astype(int).to_numpy()
     groups = df["subject_id"].astype(str).to_numpy()
 
-    # Untouched subject-level holdout. No frame/rep from a held-out subject may
-    # appear in training, preventing the most common movement-AI leakage mode.
     splitter = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
     train_idx, test_idx = next(splitter.split(X, y, groups))
     X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train, y_test = y[train_idx], y[test_idx]
     groups_train = groups[train_idx]
 
-    folds = min(5, len(np.unique(groups_train)))
+    unique_train_groups = np.unique(groups_train)
+    folds = min(5, len(unique_train_groups))
     if folds < 3:
-        raise ValueError("Training split needs at least 3 distinct subjects for grouped validation.")
+        raise ValueError("Training split needs at least 3 distinct subjects for grouped calibration.")
 
-    base = build_pipeline()
     grouped_cv = GroupKFold(n_splits=folds)
-
-    # Out-of-fold probabilities come only from models that did not train on the
-    # held-out subject. These are used both for development metrics and to fit
-    # a separate Platt calibrator without subject leakage.
-    oof_raw = cross_val_predict(
-        base,
-        X_train,
-        y_train,
-        groups=groups_train,
-        cv=grouped_cv,
-        method="predict_proba",
+    base = build_pipeline(features)
+    development_raw = cross_val_predict(
+        base, X_train, y_train, groups=groups_train, cv=grouped_cv, method="predict_proba"
     )[:, 1]
-    calibrator = platt_fit(oof_raw, y_train)
-    development_probabilities = platt_apply(calibrator, oof_raw)
 
-    # Fit the deployable baseline on all training subjects, then apply only the
-    # calibrator learned from grouped out-of-fold predictions to the untouched
-    # subject-level test set.
-    interpretable = build_pipeline()
+    calibration_model = LogisticRegression(penalty=None, max_iter=2000, random_state=42)
+    calibration_model.fit(prob_to_logit(development_raw).reshape(-1, 1), y_train)
+    development_probabilities = calibration_model.predict_proba(
+        prob_to_logit(development_raw).reshape(-1, 1)
+    )[:, 1]
+
+    interpretable = build_pipeline(features)
     interpretable.fit(X_train, y_train)
     test_raw = interpretable.predict_proba(X_test)[:, 1]
-    test_probabilities = platt_apply(calibrator, test_raw)
+    test_probabilities = calibration_model.predict_proba(prob_to_logit(test_raw).reshape(-1, 1))[:, 1]
 
     scaler = interpretable.named_steps["preprocess"].named_transformers_["numeric"].named_steps["scale"]
     imputer = interpretable.named_steps["preprocess"].named_transformers_["numeric"].named_steps["impute"]
@@ -157,7 +126,8 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
         "clinicalClaim": "none",
         "positiveClass": "training-set deviation/non-optimal movement",
         "negativeClass": "training-set reference/correct movement",
-        "features": FEATURES,
+        "features": features,
+        "unavailableSourceFeatures": unavailable_features,
         "preprocessing": {
             "imputation": "median",
             "medians": [float(x) for x in imputer.statistics_],
@@ -166,15 +136,12 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
         },
         "interpretableBaseline": {
             "intercept": float(classifier.intercept_[0]),
-            "coefficients": {
-                feature: float(value)
-                for feature, value in zip(FEATURES, classifier.coef_[0], strict=True)
-            },
+            "coefficients": {feature: float(value) for feature, value in zip(features, classifier.coef_[0], strict=True)},
         },
         "calibration": {
-            "method": "Platt scaling from subject-grouped out-of-fold predictions",
-            "intercept": float(calibrator.intercept_[0]),
-            "coefficient": float(calibrator.coef_[0][0]),
+            "method": "platt-logistic-on-subject-grouped-oof-logits",
+            "intercept": float(calibration_model.intercept_[0]),
+            "coefficient": float(calibration_model.coef_[0, 0]),
         },
         "validation": {
             "splitUnit": "subject",
