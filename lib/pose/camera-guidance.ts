@@ -42,14 +42,41 @@ export const MOVEMENT_GUIDANCE: Record<
   },
 };
 
-const CORE_FULL_BODY_LANDMARKS = [11, 12, 23, 24, 25, 26, 27, 28, 31, 32];
-const LEFT_SIDE_LANDMARKS = [11, 13, 15, 23, 25, 27, 31];
-const RIGHT_SIDE_LANDMARKS = [12, 14, 16, 24, 26, 28, 32];
+const FRONT_REQUIRED = [11, 12, 23, 24, 25, 26, 27, 28, 31, 32] as const;
+
+const SIDE_REQUIRED: Record<
+  Extract<MovementType, "squat-side" | "push-up-side" | "general-side">,
+  { left: readonly number[]; right: readonly number[]; description: string }
+> = {
+  "squat-side": {
+    left: [11, 23, 25, 27, 31],
+    right: [12, 24, 26, 28, 32],
+    description: "shoulder, hip, knee, ankle, and foot",
+  },
+  "push-up-side": {
+    left: [11, 13, 23, 25, 27],
+    right: [12, 14, 24, 26, 28],
+    description: "shoulder, elbow, hip, knee, and ankle",
+  },
+  "general-side": {
+    left: [11, 23, 25, 27, 31],
+    right: [12, 24, 26, 28, 32],
+    description: "shoulder, hip, knee, ankle, and foot",
+  },
+};
 
 export type CameraGuidanceStatus = {
   ready: boolean;
   messages: string[];
 };
+
+function allTrusted(frame: PoseFrame, indices: readonly number[]) {
+  return indices.every((index) => frame.keypoints[index]?.trusted === true);
+}
+
+function trustedCount(frame: PoseFrame, indices: readonly number[]) {
+  return indices.filter((index) => frame.keypoints[index]?.trusted === true).length;
+}
 
 export function evaluateCameraGuidance(
   frame: PoseFrame | null,
@@ -64,32 +91,35 @@ export function evaluateCameraGuidance(
 
   const config = MOVEMENT_GUIDANCE[movement];
   const messages: string[] = [];
-
-  const isTrusted = (index: number) => frame.keypoints[index]?.trusted === true;
+  let framingIndices: readonly number[] = FRONT_REQUIRED;
 
   if (config.view === "front") {
-    const missing = CORE_FULL_BODY_LANDMARKS.filter((index) => !isTrusted(index));
-    if (missing.length > 0) {
+    if (!allTrusted(frame, FRONT_REQUIRED)) {
       messages.push(
         "Keep both shoulders, hips, knees, ankles, and feet clearly visible before recording.",
       );
     }
   } else {
-    const leftTrusted = LEFT_SIDE_LANDMARKS.filter(isTrusted).length;
-    const rightTrusted = RIGHT_SIDE_LANDMARKS.filter(isTrusted).length;
-    const bestSideTrusted = Math.max(leftTrusted, rightTrusted);
+    const sideConfig = SIDE_REQUIRED[movement as keyof typeof SIDE_REQUIRED];
+    const leftCount = trustedCount(frame, sideConfig.left);
+    const rightCount = trustedCount(frame, sideConfig.right);
+    const useLeft = leftCount >= rightCount;
+    framingIndices = useLeft ? sideConfig.left : sideConfig.right;
 
-    if (bestSideTrusted < 6) {
+    if (!allTrusted(frame, framingIndices)) {
       messages.push(
-        "Keep one complete side of the body visible from shoulder through foot; remove occlusions or move farther from the camera.",
+        `Keep one complete visible-side chain clear: ${sideConfig.description}. Remove occlusions or adjust the camera.`,
       );
     }
   }
 
-  const xs = frame.keypoints.filter((point) => point.trusted).map((point) => point.x);
-  const ys = frame.keypoints.filter((point) => point.trusted).map((point) => point.y);
+  const framingPoints = framingIndices
+    .map((index) => frame.keypoints[index])
+    .filter((point) => point?.trusted === true);
 
-  if (xs.length > 0 && ys.length > 0) {
+  if (framingPoints.length > 0) {
+    const xs = framingPoints.map((point) => point.x);
+    const ys = framingPoints.map((point) => point.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
     const minY = Math.min(...ys);
@@ -97,7 +127,7 @@ export function evaluateCameraGuidance(
     const margin = 0.03;
 
     if (minX < margin || maxX > 1 - margin || minY < margin || maxY > 1 - margin) {
-      messages.push("Move slightly farther from the camera so the full pose stays inside the frame.");
+      messages.push("Move slightly farther from the camera so the required body landmarks stay inside the frame.");
     }
   }
 
@@ -107,7 +137,7 @@ export function evaluateCameraGuidance(
       messages.length > 0
         ? messages
         : [
-            `${config.label} positioning looks usable. This confirms landmark visibility, not perfect 3D camera alignment.`,
+            `${config.label} positioning looks usable. This confirms required landmark visibility and framing, not perfect 3D camera alignment.`,
           ],
   };
 }
