@@ -91,14 +91,19 @@ export function MovementAnalysisWorkspace() {
       return;
     }
     try {
-      const points = await loadAngleTrend(createBrowserSupabaseClient(), selectedAngle, user.id);
+      const points = await loadAngleTrend(
+        createBrowserSupabaseClient(),
+        selectedAngle,
+        movement,
+        user.id,
+      );
       setHistoricalTrend(points);
     } catch (error) {
       setPersistenceStatus(
         `Could not load prior sessions: ${error instanceof Error ? error.message : "unknown error"}`,
       );
     }
-  }, [selectedAngle, user]);
+  }, [movement, selectedAngle, user]);
 
   useEffect(() => {
     void refreshTrend();
@@ -374,7 +379,7 @@ export function MovementAnalysisWorkspace() {
       <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-semibold text-zinc-950">Across-session trend</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Maximum absolute value for the selected 2D metric across recent completed sessions. A trend is descriptive and must not be interpreted as injury probability.
+          Maximum absolute value for the selected 2D metric across recent completed sessions with the same capture mode and measurement version. A trend is descriptive and must not be interpreted as injury probability.
         </p>
         <div className="mt-5"><SessionTrendChart points={sessionTrend} /></div>
       </section>
