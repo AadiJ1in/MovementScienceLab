@@ -31,8 +31,10 @@ export function RuleConfigurationPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-zinc-900">Movement-quality rules</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-600">
-            Import literature- or protocol-sourced JSON. The loader rejects rules without a source URL and never invents cutoffs.
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-zinc-600">
+            Import literature- or clinician-protocol-sourced JSON. Each rule must declare its source URL,
+            source measurement method, and front/side capture view. A real published cutoff is not assumed
+            transferable to this webcam metric merely because the joint name is similar.
           </p>
         </div>
         <label className={`rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
