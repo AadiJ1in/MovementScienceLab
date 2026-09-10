@@ -15,8 +15,10 @@ import {
 import { toPoseFrame, type MovementType, type PoseFrame } from "@/lib/pose/types";
 
 const WASM_ROOT =
+  process.env.NEXT_PUBLIC_MEDIAPIPE_WASM_URL?.trim() ||
   "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const POSE_MODEL =
+  process.env.NEXT_PUBLIC_MEDIAPIPE_MODEL_URL?.trim() ||
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
 
 const MOVEMENTS: MovementType[] = [
@@ -34,6 +36,8 @@ type PoseCaptureProps = {
   movementLocked?: boolean;
   videoOverlay?: ReactNode;
 };
+
+type CaptureStatus = "idle" | "loading" | "ready" | "error";
 
 export function PoseCapture({
   onFrame,
@@ -53,8 +57,10 @@ export function PoseCapture({
 
   const [movement, setMovement] = useState<MovementType>("squat-front");
   const [poseFrame, setPoseFrame] = useState<PoseFrame | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<CaptureStatus>("idle");
   const [delegate, setDelegate] = useState<"GPU" | "CPU" | null>(null);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+  const [captureEnabled, setCaptureEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,13 +76,23 @@ export function PoseCapture({
     [poseFrame, movement],
   );
 
-  const captureReady = status === "ready" && guidance.ready;
+  const captureReady = captureEnabled && status === "ready" && guidance.ready;
 
   useEffect(() => {
     onCaptureReadyChangeRef.current?.(captureReady);
   }, [captureReady]);
 
   useEffect(() => {
+    if (!captureEnabled) {
+      setStatus("idle");
+      setPoseFrame(null);
+      setDelegate(null);
+      setError(null);
+      onFrameRef.current?.(null);
+      onCaptureReadyChangeRef.current?.(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function initialize() {
@@ -84,6 +100,7 @@ export function PoseCapture({
         setStatus("loading");
         setError(null);
         setDelegate(null);
+        lastVideoTimeRef.current = -1;
 
         if (!navigator.mediaDevices?.getUserMedia) {
           throw new Error("This browser does not expose webcam capture APIs.");
@@ -220,13 +237,19 @@ export function PoseCapture({
       onCaptureReadyChangeRef.current?.(false);
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
+      if (videoRef.current) videoRef.current.srcObject = null;
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
+      const context = canvasRef.current?.getContext("2d");
+      if (context && canvasRef.current) {
+        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
     };
-  }, []);
+  }, [captureEnabled]);
 
   const config = MOVEMENT_GUIDANCE[movement];
 
@@ -234,6 +257,11 @@ export function PoseCapture({
     if (movementLocked) return;
     setMovement(nextMovement);
     onMovementChange?.(nextMovement);
+  }
+
+  function disableCapture() {
+    if (movementLocked) return;
+    setCaptureEnabled(false);
   }
 
   return (
@@ -251,9 +279,10 @@ export function PoseCapture({
             className="pointer-events-none absolute inset-0 h-full w-full scale-x-[-1] object-cover"
           />
 
-          <CameraGuideOverlay view={config.view} ready={guidance.ready} />
+          {captureEnabled && <CameraGuideOverlay view={config.view} ready={guidance.ready} />}
 
           <div className="absolute left-4 top-4 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+            {status === "idle" && "Camera off"}
             {status === "loading" && "Loading pose model…"}
             {status === "ready" &&
               (poseFrame
@@ -262,7 +291,18 @@ export function PoseCapture({
             {status === "error" && "Camera unavailable"}
           </div>
 
-          {videoOverlay && (
+          {!captureEnabled && (
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <div className="max-w-sm rounded-2xl bg-black/75 p-5 text-center text-white backdrop-blur">
+                <p className="text-sm font-semibold">Camera analysis is off</p>
+                <p className="mt-2 text-xs leading-5 text-white/70">
+                  Review the privacy notice and explicitly enable camera analysis before the pose model or webcam starts.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {captureEnabled && videoOverlay && (
             <div className="pointer-events-none absolute right-4 top-4 z-10">
               {videoOverlay}
             </div>
@@ -277,6 +317,54 @@ export function PoseCapture({
           </p>
           <h2 className="mt-2 text-xl font-semibold text-zinc-950">Camera guidance</h2>
         </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-5 text-zinc-600">
+          <p className="font-semibold text-zinc-900">Camera & MediaPipe privacy notice</p>
+          <p className="mt-1">
+            Webcam images/video are processed locally in this browser by MediaPipe Tasks and are not uploaded by this app. MediaPipe Tasks does send performance and utilization metrics to Google. Review the MediaPipe privacy notice and obtain any consent required for your use before enabling capture.
+          </p>
+          <a
+            href="https://www.npmjs.com/package/@mediapipe/tasks-vision"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-block underline"
+          >
+            MediaPipe Tasks privacy notice
+          </a>
+        </div>
+
+        {!captureEnabled ? (
+          <div className="space-y-3">
+            <label className="flex items-start gap-2 text-xs leading-5 text-zinc-700">
+              <input
+                type="checkbox"
+                checked={privacyAcknowledged}
+                onChange={(event) => setPrivacyAcknowledged(event.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                I have read the notice above and understand that MediaPipe processes the camera input on-device while sending API performance/utilization metrics to Google.
+              </span>
+            </label>
+            <button
+              type="button"
+              disabled={!privacyAcknowledged}
+              onClick={() => setCaptureEnabled(true)}
+              className="w-full rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-300"
+            >
+              Enable camera analysis
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={movementLocked}
+            onClick={disableCapture}
+            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {movementLocked ? "Camera active during recording" : "Stop camera"}
+          </button>
+        )}
 
         <label className="block text-sm font-medium text-zinc-800">
           Capture mode
@@ -303,27 +391,28 @@ export function PoseCapture({
           <strong className="text-zinc-950">Position:</strong> {config.instruction}
         </div>
 
-        <div
-          className={`rounded-2xl border p-4 ${
-            captureReady
-              ? "border-emerald-200 bg-emerald-50"
-              : "border-amber-200 bg-amber-50"
-          }`}
-        >
-          <p className="text-sm font-semibold text-zinc-950">
-            {captureReady ? "Capture position usable" : "Adjust camera/body position"}
-          </p>
-          <ul className="mt-2 space-y-1 text-sm leading-5 text-zinc-700">
-            {guidance.messages.map((message) => (
-              <li key={message}>• {message}</li>
-            ))}
-          </ul>
-        </div>
+        {captureEnabled && (
+          <div
+            className={`rounded-2xl border p-4 ${
+              captureReady
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <p className="text-sm font-semibold text-zinc-950">
+              {captureReady ? "Capture position usable" : "Adjust camera/body position"}
+            </p>
+            <ul className="mt-2 space-y-1 text-sm leading-5 text-zinc-700">
+              {guidance.messages.map((message) => (
+                <li key={message}>• {message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-zinc-200 p-4 text-sm leading-6 text-zinc-600">
           Keypoints are marked <strong>trusted</strong> only when MediaPipe visibility is at
-          least {KEYPOINT_VISIBILITY_THRESHOLD.toFixed(1)}. Low-visibility landmarks remain
-          available in the frame payload but must not be used for downstream angle calculations.
+          least {KEYPOINT_VISIBILITY_THRESHOLD.toFixed(1)}. This is an engineering data-quality gate, not a clinical cutoff. Low-visibility landmarks are excluded from downstream angle measurements.
         </div>
 
         {delegate === "CPU" && status === "ready" && (
