@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -87,6 +86,22 @@ def metrics(y_true: np.ndarray, probabilities: np.ndarray, threshold: float = 0.
     }
 
 
+def platt_fit(raw_probabilities: np.ndarray, y: np.ndarray) -> LogisticRegression:
+    eps = 1e-6
+    clipped = np.clip(raw_probabilities, eps, 1 - eps)
+    logits = np.log(clipped / (1 - clipped)).reshape(-1, 1)
+    calibrator = LogisticRegression(max_iter=2000, random_state=42)
+    calibrator.fit(logits, y)
+    return calibrator
+
+
+def platt_apply(calibrator: LogisticRegression, raw_probabilities: np.ndarray) -> np.ndarray:
+    eps = 1e-6
+    clipped = np.clip(raw_probabilities, eps, 1 - eps)
+    logits = np.log(clipped / (1 - clipped)).reshape(-1, 1)
+    return calibrator.predict_proba(logits)[:, 1]
+
+
 def fit_and_export(input_csv: Path, output_json: Path) -> None:
     df = pd.read_csv(input_csv)
     validate_columns(df)
@@ -103,17 +118,17 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
     y_train, y_test = y[train_idx], y[test_idx]
     groups_train = groups[train_idx]
 
-    unique_train_groups = np.unique(groups_train)
-    folds = min(5, len(unique_train_groups))
+    folds = min(5, len(np.unique(groups_train)))
     if folds < 3:
-        raise ValueError("Training split needs at least 3 distinct subjects for grouped calibration.")
+        raise ValueError("Training split needs at least 3 distinct subjects for grouped validation.")
 
     base = build_pipeline()
     grouped_cv = GroupKFold(n_splits=folds)
 
-    # Cross-validated predictions on training subjects provide a leakage-resistant
-    # development estimate before the untouched test set is examined.
-    development_probabilities = cross_val_predict(
+    # Out-of-fold probabilities come only from models that did not train on the
+    # held-out subject. These are used both for development metrics and to fit
+    # a separate Platt calibrator without subject leakage.
+    oof_raw = cross_val_predict(
         base,
         X_train,
         y_train,
@@ -121,21 +136,17 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
         cv=grouped_cv,
         method="predict_proba",
     )[:, 1]
+    calibrator = platt_fit(oof_raw, y_train)
+    development_probabilities = platt_apply(calibrator, oof_raw)
 
-    # Fit a calibrated model using grouped folds. Calibration matters because the
-    # browser surfaces probabilities; uncalibrated scores must not look like risk.
-    calibrated = CalibratedClassifierCV(
-        estimator=base,
-        method="sigmoid",
-        cv=grouped_cv,
-    )
-    calibrated.fit(X_train, y_train, groups=groups_train)
-    test_probabilities = calibrated.predict_proba(X_test)[:, 1]
-
-    # Separately fit the interpretable baseline on all training data so we can
-    # export standardized coefficients and feature directionality.
+    # Fit the deployable baseline on all training subjects, then apply only the
+    # calibrator learned from grouped out-of-fold predictions to the untouched
+    # subject-level test set.
     interpretable = build_pipeline()
     interpretable.fit(X_train, y_train)
+    test_raw = interpretable.predict_proba(X_test)[:, 1]
+    test_probabilities = platt_apply(calibrator, test_raw)
+
     scaler = interpretable.named_steps["preprocess"].named_transformers_["numeric"].named_steps["scale"]
     imputer = interpretable.named_steps["preprocess"].named_transformers_["numeric"].named_steps["impute"]
     classifier = interpretable.named_steps["classifier"]
@@ -159,6 +170,11 @@ def fit_and_export(input_csv: Path, output_json: Path) -> None:
                 feature: float(value)
                 for feature, value in zip(FEATURES, classifier.coef_[0], strict=True)
             },
+        },
+        "calibration": {
+            "method": "Platt scaling from subject-grouped out-of-fold predictions",
+            "intercept": float(calibrator.intercept_[0]),
+            "coefficient": float(calibrator.coef_[0][0]),
         },
         "validation": {
             "splitUnit": "subject",
