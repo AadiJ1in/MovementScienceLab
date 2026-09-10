@@ -25,7 +25,10 @@ import {
   type RepSummary,
 } from "@/lib/biomechanics/rep-segmentation";
 import { aggregateReps } from "@/lib/biomechanics/session-aggregation";
-import { KEYPOINT_VISIBILITY_THRESHOLD } from "@/lib/pose/camera-guidance";
+import {
+  KEYPOINT_VISIBILITY_THRESHOLD,
+  MOVEMENT_GUIDANCE,
+} from "@/lib/pose/camera-guidance";
 import type { MovementType, PoseFrame } from "@/lib/pose/types";
 import { createBrowserSupabaseClient, hasSupabaseConfig } from "@/lib/supabase/client";
 import {
@@ -41,6 +44,13 @@ import { AngleTimeSeriesChart, SessionTrendChart } from "./AngleCharts";
 
 const MAX_LIVE_POINTS = 9000;
 const STORAGE_INTERVAL_MS = 100;
+
+function ruleAppliesToMovement(rule: MovementRule, movement: MovementType) {
+  return (
+    rule.captureView === MOVEMENT_GUIDANCE[movement].view &&
+    isAngleValidForMovement(rule.angleName, movement)
+  );
+}
 
 export function MovementAnalysisWorkspace() {
   const [isRecording, setIsRecording] = useState(false);
@@ -165,7 +175,7 @@ export function MovementAnalysisWorkspace() {
 
   async function startRecording() {
     const protocolRules = rules
-      .filter((rule) => isAngleValidForMovement(rule.angleName, movement))
+      .filter((rule) => ruleAppliesToMovement(rule, movement))
       .map((rule) => ({ ...rule }));
     const excludedRuleCount = rules.length - protocolRules.length;
 
@@ -181,7 +191,7 @@ export function MovementAnalysisWorkspace() {
     setIsRecording(true);
 
     const projectionNote = excludedRuleCount
-      ? ` ${excludedRuleCount} rule${excludedRuleCount === 1 ? "" : "s"} excluded because the metric is not valid in this camera projection.`
+      ? ` ${excludedRuleCount} rule${excludedRuleCount === 1 ? "" : "s"} excluded because its capture view or metric does not match this recording.`
       : "";
 
     if (!hasSupabaseConfig()) {
@@ -271,7 +281,7 @@ export function MovementAnalysisWorkspace() {
   const sessionTrend = [...historicalTrend, ...currentSessionTrend];
   const displayedRuleCount = isRecording
     ? activeRulesRef.current.length
-    : rules.filter((rule) => isAngleValidForMovement(rule.angleName, movement)).length;
+    : rules.filter((rule) => ruleAppliesToMovement(rule, movement)).length;
   const usesKneeCycleReps = movement === "squat-side";
 
   const videoOverlay = (
@@ -345,7 +355,10 @@ export function MovementAnalysisWorkspace() {
           <div className="mt-5 space-y-2">
             {selectedFlags.slice(-8).map((flag) => (
               <div key={`${flag.ruleId}-${flag.frameTimestamp}`} className="rounded-xl border border-zinc-200 p-3 text-sm">
-                <strong>{flag.severity}:</strong> {flag.message} <span className="text-zinc-500">Source: {flag.sourceLabel}</span>
+                <strong>{flag.severity}:</strong> {flag.message}{" "}
+                <span className="text-zinc-500">
+                  Source: {flag.sourceLabel} · {flag.sourceMeasurementMethod}
+                </span>
               </div>
             ))}
           </div>
