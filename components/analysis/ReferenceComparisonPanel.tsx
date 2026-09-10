@@ -3,31 +3,11 @@
 import { useMemo, useState } from "react";
 import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
 import { compareRepToReference, scoreRepAgainstReference } from "@/lib/biomechanics/dtw";
+import {
+  parseReferenceTrajectory,
+  type ReferenceTrajectory,
+} from "@/lib/biomechanics/reference-trajectory";
 import type { CaptureView } from "@/lib/pose/types";
-
-export type ReferenceTrajectoryFile = {
-  angleName: AngleName;
-  captureView: CaptureView;
-  values: number[];
-  sourceLabel: string;
-  sourceUrl: string;
-  sourceMeasurementMethod: string;
-  deviationBoundary?: number;
-  deviationBoundarySourceLabel?: string;
-  deviationBoundarySourceUrl?: string;
-};
-
-function assertHttpUrl(value: string, field: string) {
-  let parsed: URL;
-  try {
-    parsed = new URL(value);
-  } catch {
-    throw new Error(`${field} must be a valid URL.`);
-  }
-  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    throw new Error(`${field} must use http or https.`);
-  }
-}
 
 export function ReferenceComparisonPanel({
   angleName,
@@ -38,7 +18,7 @@ export function ReferenceComparisonPanel({
   captureView: CaptureView;
   readings: AngleReading[];
 }) {
-  const [reference, setReference] = useState<ReferenceTrajectoryFile | null>(null);
+  const [reference, setReference] = useState<ReferenceTrajectory | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const referenceMatchesMetric =
     reference?.angleName === angleName && reference?.captureView === captureView;
@@ -46,40 +26,9 @@ export function ReferenceComparisonPanel({
   async function handleFile(file: File | undefined) {
     if (!file) return;
     try {
-      const parsed = JSON.parse(await file.text()) as Partial<ReferenceTrajectoryFile>;
-      if (parsed.angleName !== angleName) {
-        throw new Error(`Reference angleName must match ${angleName}.`);
-      }
-      if (parsed.captureView !== captureView) {
-        throw new Error(`Reference captureView must match ${captureView}.`);
-      }
-      if (!Array.isArray(parsed.values) || parsed.values.length < 3 || !parsed.values.every(Number.isFinite)) {
-        throw new Error("Reference values must be an array of at least 3 finite numbers.");
-      }
-      if (!parsed.sourceLabel?.trim()) {
-        throw new Error("Reference sourceLabel is required so trajectory provenance is explicit.");
-      }
-      if (!parsed.sourceUrl?.trim()) {
-        throw new Error("Reference sourceUrl is required.");
-      }
-      assertHttpUrl(parsed.sourceUrl, "sourceUrl");
-      if (!parsed.sourceMeasurementMethod?.trim()) {
-        throw new Error("Reference sourceMeasurementMethod is required.");
-      }
-
-      if (parsed.deviationBoundary !== undefined) {
-        if (!Number.isFinite(parsed.deviationBoundary) || parsed.deviationBoundary < 0) {
-          throw new Error("deviationBoundary must be a non-negative number when supplied.");
-        }
-        if (!parsed.deviationBoundarySourceLabel?.trim() || !parsed.deviationBoundarySourceUrl?.trim()) {
-          throw new Error(
-            "A deviationBoundary requires deviationBoundarySourceLabel and deviationBoundarySourceUrl; arbitrary classification cutoffs are not accepted.",
-          );
-        }
-        assertHttpUrl(parsed.deviationBoundarySourceUrl, "deviationBoundarySourceUrl");
-      }
-
-      setReference(parsed as ReferenceTrajectoryFile);
+      const input = JSON.parse(await file.text()) as unknown;
+      const parsed = parseReferenceTrajectory(input, angleName, captureView);
+      setReference(parsed);
       setMessage(null);
     } catch (error) {
       setReference(null);
