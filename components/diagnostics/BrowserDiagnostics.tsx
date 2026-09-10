@@ -23,10 +23,11 @@ export function BrowserDiagnostics() {
         : "Camera access is commonly blocked outside HTTPS or localhost.",
     });
 
+    const hasCameraApi = Boolean(navigator.mediaDevices);
     next.push({
       name: "Camera API",
-      status: navigator.mediaDevices?.getUserMedia ? "pass" : "fail",
-      detail: navigator.mediaDevices?.getUserMedia
+      status: hasCameraApi ? "pass" : "fail",
+      detail: hasCameraApi
         ? "navigator.mediaDevices.getUserMedia is available."
         : "This browser does not expose the webcam capture API used by the app.",
     });
