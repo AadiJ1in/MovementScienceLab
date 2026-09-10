@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-10",
+  "purpose": "Evidence registry for movement-quality assessment and research-only injury-association features. Entries do not automatically become runtime thresholds.",
+  "policy": {
+    "runtimeThresholdsRequireMeasurementCompatibility": true,
+    "prospectiveInjuryClaimsRequireOutcomeLabeledEvidence": true,
+    "systematicReviewsOverrideSingleStudyCertainty": true,
+    "youtubeMayBeUsedForViewAugmentationNotClinicalGroundTruth": true,
+    "singleCamera2DIsNotInterchangeableWith3DMotionCapture": true
+  },
+  "evidence": [
+    {
+      "id": "ui-prmd-2018-deep-squat",
+      "kind": "movement-quality-protocol",
+      "movement": "squat",
+      "sourceLabel": "Vakanski et al. UI-PRMD",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/",
+      "measurementMethod": "Kinect and Vicon rehabilitation movement dataset",
+      "population": "10 healthy subjects",
+      "signal": "Non-optimal deep squat protocol includes inability to squat past parallel, knee valgus collapse, loss of upright trunk posture, and trunk flexion greater than 30 degrees.",
+      "runtimeUse": "training-label-taxonomy",
+      "transferability": "partial",
+      "limitations": "Protocol-defined non-optimal form is not equivalent to prospective injury risk. Vicon/Kinect measures are not automatically interchangeable with MediaPipe 2D webcam angles."
+    },
+    {
+      "id": "kimore-2019",
+      "kind": "clinician-scored-rehabilitation-quality",
+      "movement": "rehabilitation",
+      "sourceLabel": "Capecci et al. KIMORE",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/31217121/",
+      "measurementMethod": "RGB-D Kinect skeleton plus physician-defined features and clinician performance scores",
+      "population": "44 healthy subjects and 34 subjects with motor dysfunctions",
+      "signal": "Clinician-scored exercise quality for five rehabilitation exercises.",
+      "runtimeUse": "quality-regression-training",
+      "transferability": "partial",
+      "limitations": "Clinical score is exercise-quality ground truth, not future-injury ground truth; sensor/domain shift to a monocular webcam must be validated."
+    },
+    {
+      "id": "execheck-2025",
+      "kind": "paired-correct-incorrect-rehabilitation",
+      "movement": "rehabilitation",
+      "sourceLabel": "Gu et al. ExeChecker",
+      "sourceUrl": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
+      "measurementMethod": "Azure Kinect RGB-D and skeleton joints",
+      "population": "7 healthy subjects performing 10 rehabilitation exercises",
+      "signal": "Paired correct and incorrect forms of the same exercises and subjects.",
+      "runtimeUse": "deviation-classification-training",
+      "transferability": "partial",
+      "limitations": "Small cohort and RGB-D sensor; useful for form classification but not prospective injury prediction."
+    },
+    {
+      "id": "raisanen-2018-fpkpa",
+      "kind": "prospective-injury-association",
+      "movement": "single-leg-squat",
+      "sourceLabel": "Raisanen et al. prospective frontal-plane knee control study",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5783037/",
+      "measurementMethod": "2D frontal-plane knee projection angle during single-leg squat using anatomical landmarks",
+      "population": "306 young basketball and floorball athletes with 12-month follow-up",
+      "signal": "FPKPA greater than 23.8 degrees was associated with subsequent acute lower-extremity injury (adjusted OR 2.67, 95% CI 1.23-5.83).",
+      "runtimeUse": "research-only-association",
+      "transferability": "not-yet-compatible",
+      "limitations": "AUC was poor for screening; study metric uses ASIS-knee-ankle geometry, while BlazePose does not provide true ASIS landmarks. Do not map 23.8 degrees directly to the current MediaPipe proxy."
+    },
+    {
+      "id": "nakagawa-2020-pfp",
+      "kind": "prospective-condition-association",
+      "movement": "single-leg-squat",
+      "sourceLabel": "Nakagawa et al. prospective patellofemoral pain study",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32504961/",
+      "measurementMethod": "Single-leg squat frontal-plane knee projection angle",
+      "population": "male military recruits",
+      "signal": "FPKPA >= 4.81 degrees was associated with development of patellofemoral pain in the study cohort.",
+      "runtimeUse": "research-only-association",
+      "transferability": "not-yet-compatible",
+      "limitations": "Population-specific; not a general injury threshold and not directly transferable to BlazePose geometry without validation."
+    },
+    {
+      "id": "hewett-2005-acl",
+      "kind": "prospective-injury-association",
+      "movement": "drop-vertical-jump",
+      "sourceLabel": "Hewett et al. prospective ACL biomechanics study",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/15722287/",
+      "measurementMethod": "3D kinematics and kinetics during jump landing",
+      "population": "205 female high-school athletes; 9 subsequent ACL ruptures",
+      "signal": "Subsequently injured athletes showed greater knee abduction and loading during landing.",
+      "runtimeUse": "research-only-context",
+      "transferability": "incompatible",
+      "limitations": "3D lab kinematics/kinetics and force data cannot be converted into a monocular 2D webcam threshold."
+    },
+    {
+      "id": "nilstad-2020-meta-acl",
+      "kind": "systematic-review-meta-analysis",
+      "movement": "weight-bearing-dynamic",
+      "sourceLabel": "Systematic review and meta-analysis of knee abduction and future ACL injury",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32819327/",
+      "measurementMethod": "Prospective studies of 2D/3D knee abduction kinematics and kinetics",
+      "population": "multiple prospective cohorts",
+      "signal": "Meta-analysis did not find knee abduction measures alone to consistently predict future ACL injury.",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high",
+      "limitations": "Supports avoiding a single-metric ACL prediction claim."
+    },
+    {
+      "id": "avci-2026-squat-review",
+      "kind": "systematic-review",
+      "movement": "squat",
+      "sourceLabel": "Avci et al. squat task injury-risk systematic review",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/41927210/",
+      "measurementMethod": "Systematic review of squat-based injury-risk assessment",
+      "population": "7 included studies",
+      "signal": "Squat assessment may contribute information, but included methods were heterogeneous and some studies concluded squat alone is insufficient.",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high",
+      "limitations": "Does not justify black-and-white injury prediction from squat form alone."
+    }
+  ]
+}
