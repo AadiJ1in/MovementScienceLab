@@ -86,15 +86,23 @@ jobs:
               }
           print(json.dumps({'static': compact(static), 'temporal': compact(temporal)}, indent=2))
           PY
+      - name: Apply fail-closed research promotion gates
+        run: |
+          python ml/select_research_candidates.py \
+            .research-output/rehab24-multiexercise-models.json \
+            .research-output/rehab24-temporal-models.json \
+            .research-output/model-promotion-manifest.json
       - name: Print validation report
         run: |
           python - <<'PY'
           import json
           model = json.load(open('.research-output/rehab24-squat-model.json'))
           benchmark = json.load(open('.research-output/rehab24-squat-benchmark.json'))
+          promotion = json.load(open('.research-output/model-promotion-manifest.json'))
           print(json.dumps(benchmark, indent=2))
           print(json.dumps(model['validation'], indent=2))
           print(json.dumps(model['deploymentGate'], indent=2))
+          print(json.dumps(promotion, indent=2))
           PY
       - uses: actions/upload-artifact@v4
         with:
