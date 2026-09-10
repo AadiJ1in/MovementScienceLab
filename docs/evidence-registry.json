@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "lastReviewed": "2026-09-10",
   "purpose": "Evidence registry for movement-quality assessment and research-only injury-association features. Entries do not automatically become runtime thresholds.",
   "policy": {
@@ -9,9 +9,63 @@
     "conflictingProspectiveEvidenceMustBePreserved": true,
     "youtubeMayBeUsedForViewAugmentationNotClinicalGroundTruth": true,
     "singleCamera2DIsNotInterchangeableWith3DMotionCapture": true,
-    "multifactorialOutcomeModelsMustNotBeReducedToPoseOnlyRiskScores": true
+    "multifactorialOutcomeModelsMustNotBeReducedToPoseOnlyRiskScores": true,
+    "correctnessLabelsMustRemainDistinctFromInjuryOutcomes": true,
+    "annotationAgreementAndAnnotatorTypeMustBeTracked": true
   },
   "evidence": [
+    {
+      "id": "intellirehabds-2021",
+      "kind": "patient-inclusive-correctness-dataset",
+      "movement": "rehabilitation",
+      "sourceLabel": "Miron et al. IntelliRehabDS",
+      "sourceUrl": "https://www.mdpi.com/2306-5729/6/5/46",
+      "measurementMethod": "Kinect skeleton with 3D coordinates, tracked-state metadata and 2D projections",
+      "population": "15 rehabilitation patients and 14 healthy controls",
+      "signal": "2,577 assignable gesture recordings labeled correct or incorrect; two annotators independently reviewed correctness and reported 88% agreement.",
+      "runtimeUse": "priority-open-training-and-external-validation",
+      "transferability": "partial",
+      "limitations": "Correctness is subjective and binary, class balance varies by exercise, and Kinect geometry is not identical to MediaPipe. Correctness is not injury diagnosis or future-injury ground truth."
+    },
+    {
+      "id": "keraal-clinical-errors",
+      "kind": "doctor-annotated-clinical-rehabilitation-errors",
+      "movement": "low-back-pain-rehabilitation",
+      "sourceLabel": "KERAAL Low Back Pain Physical Rehabilitation Dataset",
+      "sourceUrl": "https://keraal.enstb.org/KeraalDataset.html",
+      "measurementMethod": "Clinical RGB video, Kinect skeleton and derived 2D pose with medical expert annotation",
+      "population": "12 patients with low-back pain and 9 healthy controls",
+      "signal": "Medical annotations include correct/incorrect assessment, error label, error severity, responsible body part and temporal error interval.",
+      "runtimeUse": "research-error-localization-and-clinical-validation",
+      "transferability": "moderate-to-high-for-research",
+      "limitations": "Focused on three low-back-pain exercises and distributed under a noncommercial license; cannot be used as universal injury-risk ground truth or silently shipped in a commercial model."
+    },
+    {
+      "id": "gaitex-2025",
+      "kind": "controlled-specific-error-dataset",
+      "movement": "foot-drop-rehabilitation",
+      "sourceLabel": "GAITEX",
+      "sourceUrl": "https://www.nature.com/articles/s41597-025-06439-x",
+      "measurementMethod": "Optical motion capture, IMU and RGB recordings of two physiotherapy exercises",
+      "population": "healthy participants performing supervised rehabilitation variants",
+      "signal": "Each exercise includes one instructed correct condition and three specific instructed incorrect variants, with repetition timing labels and supervisor verification.",
+      "runtimeUse": "specific-error-signature-research",
+      "transferability": "partial",
+      "limitations": "Labels encode instructed conditions rather than independent clinician scoring of spontaneous patient performance; useful for error taxonomy but weaker as clinical correctness ground truth."
+    },
+    {
+      "id": "rehab24-6-2025",
+      "kind": "physiotherapist-supervised-correctness-dataset",
+      "movement": "rehabilitation",
+      "sourceLabel": "REHAB24-6",
+      "sourceUrl": "https://www.muni.cz/en/research/publications/2562137",
+      "measurementMethod": "Two synchronized RGB cameras, 2D/3D skeletons and 16-camera optical motion capture",
+      "population": "10 subjects with varied age, sex and fitness level",
+      "signal": "1,072 segmented repetitions across six common rehabilitation exercises with binary correctness labels under physiotherapist supervision.",
+      "runtimeUse": "webcam-domain-research-training-and-validation",
+      "transferability": "high-for-research",
+      "limitations": "Small participant count and noncommercial research license; correctness labels are not future-injury outcomes."
+    },
     {
       "id": "ui-prmd-2018-deep-squat",
       "kind": "movement-quality-protocol",
