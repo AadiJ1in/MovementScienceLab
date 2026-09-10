@@ -26,6 +26,7 @@ export type MovementQualityModelArtifact = {
   positiveClass: string;
   negativeClass: string;
   features: MovementQualityFeatureName[];
+  unavailableSourceFeatures?: MovementQualityFeatureName[];
   preprocessing: {
     imputation: "median";
     medians: number[];
@@ -34,7 +35,7 @@ export type MovementQualityModelArtifact = {
   };
   interpretableBaseline: {
     intercept: number;
-    coefficients: Record<MovementQualityFeatureName, number>;
+    coefficients: Partial<Record<MovementQualityFeatureName, number>>;
   };
   calibration: {
     method: string;
@@ -123,7 +124,7 @@ export function inferMovementQuality(
     }
     const standardizedValue = (imputed - preprocessing.means[index]) / scale;
     const coefficient = interpretableBaseline.coefficients[feature];
-    if (!Number.isFinite(coefficient)) {
+    if (coefficient === undefined || !Number.isFinite(coefficient)) {
       throw new Error(`Missing model coefficient for ${feature}.`);
     }
     const logitContribution = standardizedValue * coefficient;
