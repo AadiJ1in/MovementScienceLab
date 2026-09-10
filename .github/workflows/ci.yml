@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -26,21 +26,6 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - name: Generate lockfile only when missing
-        if: ${{ hashFiles('pnpm-lock.yaml') == '' }}
-        run: pnpm install --lockfile-only --ignore-scripts
-      - name: Commit generated lockfile
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          if git status --porcelain -- pnpm-lock.yaml | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add pnpm-lock.yaml
-            git commit -m "Commit deterministic pnpm lockfile"
-            git push origin HEAD:main
-          else
-            echo "Lockfile already committed."
-          fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test
