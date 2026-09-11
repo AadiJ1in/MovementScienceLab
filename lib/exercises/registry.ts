@@ -50,8 +50,14 @@ const SIDE_METRICS: readonly AngleName[] = [
   "leftShoulderElevation",
   "rightShoulderElevation",
 ];
+const SHOULDER_FRONT_METRICS: readonly AngleName[] = [
+  "leftShoulderElevation",
+  "rightShoulderElevation",
+  "trunkLean",
+];
 
 const FULL_FRONT = [11, 12, 23, 24, 25, 26, 27, 28, 31, 32] as const;
+const SHOULDER_FRONT = [11, 12, 13, 14, 23, 24] as const;
 const SIDE_LEFT = [11, 23, 25, 27, 31] as const;
 const SIDE_RIGHT = [12, 24, 26, 28, 32] as const;
 const PUSH_LEFT = [11, 13, 23, 25, 27] as const;
@@ -67,6 +73,19 @@ const KNEE_CYCLE_CONFIG: Omit<RepSegmentationConfig, "angleName"> = {
   minConfidence: 0.7,
   minRepDurationMs: 450,
   maxRepDurationMs: 8000,
+  maxTrackingGapMs: 750,
+};
+
+const SHOULDER_CYCLE_CONFIG: Omit<RepSegmentationConfig, "angleName"> = {
+  startDeltaDegrees: 12,
+  reversalDeltaDegrees: 6,
+  returnToleranceDegrees: 10,
+  minExcursionDegrees: 20,
+  baselineSmoothing: 0.08,
+  signalSmoothing: 0.65,
+  minConfidence: 0.7,
+  minRepDurationMs: 500,
+  maxRepDurationMs: 10000,
   maxTrackingGapMs: 750,
 };
 
@@ -102,6 +121,16 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
     feedbackCapabilities: ["capture-quality", "within-session"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
     shortDescription: "Capture side-view upper-body and trunk movement measurements.",
   },
+  "shoulder-abduction-front": {
+    id: "shoulder-abduction-front", label: "Shoulder Abduction — front view", developmentStatus: "prototype", view: "front",
+    availableMetrics: SHOULDER_FRONT_METRICS, primaryMetric: "leftShoulderElevation", secondaryMetrics: ["rightShoulderElevation", "trunkLean"],
+    supportedMeasurementLabels: ["Left/right shoulder elevation angle", "Left/right movement difference proxy", "Trunk lean", "Engineering rep segmentation"],
+    cameraInstructions: "Face the camera with your shoulders, elbows, and hips visible. Keep enough space on both sides of the frame for your arms to move outward and upward without leaving view.",
+    calibration: { mode: "bilateral", requiredLandmarks: SHOULDER_FRONT, description: "both shoulders, elbows, and hips" },
+    segmentation: { strategy: "angle-cycle", signalAngles: ["leftShoulderElevation", "rightShoulderElevation"], config: SHOULDER_CYCLE_CONFIG },
+    feedbackCapabilities: ["capture-quality", "within-session"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
+    shortDescription: "Measure front-view shoulder elevation during repeated arm abduction using shoulder–elbow–hip geometry.",
+  },
   "general-front": {
     id: "general-front", label: "General movement — front view", developmentStatus: "prototype", view: "front",
     availableMetrics: FRONT_METRICS, primaryMetric: "leftKneeFrontalDeviation", secondaryMetrics: ["rightKneeFrontalDeviation", "pelvicLineObliquity", "trunkLean"],
@@ -125,7 +154,4 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
 };
 
 export const EXERCISES = Object.values(EXERCISE_REGISTRY);
-
-export function getExerciseDefinition(id: MovementType): ExerciseDefinition {
-  return EXERCISE_REGISTRY[id];
-}
+export function getExerciseDefinition(id: MovementType): ExerciseDefinition { return EXERCISE_REGISTRY[id]; }
