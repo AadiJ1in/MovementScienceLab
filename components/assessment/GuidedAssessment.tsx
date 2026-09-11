@@ -7,7 +7,9 @@ import { buildCalibrationChecks, calibrationPassed } from "@/lib/assessment/cali
 import { MOVEMENT_DEFINITIONS, getMovementDefinition, statusLabel } from "@/lib/assessment/movement-definitions";
 import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
 import { computeAnglesForMovement } from "@/lib/biomechanics/measurement-profile";
-import { DEFAULT_KNEE_REP_CONFIG, RepSegmenter, type RepSummary } from "@/lib/biomechanics/rep-segmentation";
+import type { RepSummary } from "@/lib/biomechanics/rep-segmentation";
+import { getExerciseDefinition } from "@/lib/exercises/registry";
+import { createExerciseRepSegmenter, type ExerciseRepSegmenter } from "@/lib/exercises/segmentation";
 import type { MovementType, PoseFrame } from "@/lib/pose/types";
 
 const MAX_CAPTURED_READINGS = 12000;
@@ -38,18 +40,20 @@ export function GuidedAssessment() {
 
   const readingsRef = useRef<AngleReading[]>([]);
   const repsRef = useRef<RepSummary[]>([]);
-  const segmenterRef = useRef<RepSegmenter | null>(null);
+  const segmenterRef = useRef<ExerciseRepSegmenter | null>(null);
   const startTimestampRef = useRef<number | null>(null);
   const recordingRef = useRef(false);
 
   const definition = getMovementDefinition(movement);
+  const exercise = getExerciseDefinition(movement);
+  const hasRepDetector = exercise.segmentation.strategy === "angle-cycle";
   const calibrationChecks = useMemo(() => buildCalibrationChecks(frame, movement), [frame, movement]);
   const isCalibrated = captureReady && calibrationPassed(calibrationChecks);
 
   function beginRecording() {
     readingsRef.current = [];
     repsRef.current = [];
-    segmenterRef.current = null;
+    segmenterRef.current = createExerciseRepSegmenter(movement);
     startTimestampRef.current = null;
     recordingRef.current = true;
     setRepCount(0);
@@ -105,23 +109,12 @@ export function GuidedAssessment() {
       readingsRef.current.splice(0, readingsRef.current.length - MAX_CAPTURED_READINGS);
     }
 
-    if (definition.repCounting !== "side-knee-cycle") return;
-    if (!segmenterRef.current) {
-      const knee = normalized
-        .filter((item) => item.angleName === "leftKneeFlexion" || item.angleName === "rightKneeFlexion")
-        .sort((a, b) => b.confidence - a.confidence)[0];
-      if (knee) {
-        segmenterRef.current = new RepSegmenter({ ...DEFAULT_KNEE_REP_CONFIG, angleName: knee.angleName });
-      }
-    }
     const segmenter = segmenterRef.current;
-    const signal = normalized.find((item) => item.angleName === segmenter?.signalAngleName);
-    if (segmenter && signal) {
-      const rep = segmenter.ingest(signal);
-      if (rep) {
-        repsRef.current.push(rep);
-        setRepCount(repsRef.current.length);
-      }
+    if (!segmenter) return;
+    const rep = segmenter.ingest(normalized);
+    if (rep) {
+      repsRef.current.push(rep);
+      setRepCount(repsRef.current.length);
     }
   }
 
@@ -139,6 +132,7 @@ export function GuidedAssessment() {
     recordingRef.current = false;
     readingsRef.current = [];
     repsRef.current = [];
+    segmenterRef.current?.reset();
     segmenterRef.current = null;
     setStep(1);
     setIsRecording(false);
@@ -155,7 +149,7 @@ export function GuidedAssessment() {
       <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/60">Live measurement</p>
       <p className="mt-1 text-sm font-medium">{liveReading ? ANGLE_LABELS[liveReading.angleName] : "Tracking"}</p>
       <p className="text-2xl font-semibold tabular-nums">{liveReading ? `${liveReading.value.toFixed(1)}°` : "—"}</p>
-      {definition.repCounting === "side-knee-cycle" && <p className="mt-1 text-xs text-white/70">Reps {repCount}</p>}
+      {hasRepDetector && <p className="mt-1 text-xs text-white/70">Reps {repCount}</p>}
     </div>
   ) : countdown !== null ? (
     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-black/80 text-4xl font-semibold text-white backdrop-blur">{countdown || "Go"}</div>
@@ -251,6 +245,8 @@ function ResultsScreen({ movement, readings, reps, telemetry, selectedRep, onSel
   onRestart: () => void;
 }) {
   const definition = getMovementDefinition(movement);
+  const exercise = getExerciseDefinition(movement);
+  const repDetectionEnabled = exercise.segmentation.strategy === "angle-cycle";
   const primary = readings.filter((item) => item.angleName === definition.primaryMetric);
   const values = primary.map((item) => item.value);
   const confidence = primary.length ? primary.reduce((sum, item) => sum + item.confidence, 0) / primary.length : null;
@@ -269,7 +265,7 @@ function ResultsScreen({ movement, readings, reps, telemetry, selectedRep, onSel
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryMetric label="Completed repetitions" value={definition.repCounting === "side-knee-cycle" ? String(reps.length) : "Not enabled"} note={definition.repCounting === "side-knee-cycle" ? "Engineering detector enabled for this capture mode" : "Rep detector not yet validated for this movement"} />
+        <SummaryMetric label="Completed repetitions" value={repDetectionEnabled ? String(reps.length) : "Not enabled"} note={repDetectionEnabled ? "Engineering detector enabled for this capture mode" : "Rep detector not yet registered for this movement"} />
         <SummaryMetric label="Measured range" value={range === null ? "—" : `${range.toFixed(1)}°`} note={ANGLE_LABELS[definition.primaryMetric]} />
         <SummaryMetric label="Measurement variability" value={variability === null ? "—" : `${variability.toFixed(1)}°`} note="Standard deviation across captured samples" />
         <SummaryMetric label="Movement confidence" value={confidence === null ? "—" : confidence >= 0.85 ? "High" : confidence >= 0.7 ? "Moderate" : "Low"} note={confidence === null ? "No usable samples" : `Mean landmark-derived confidence ${(confidence * 100).toFixed(0)}%`} />
