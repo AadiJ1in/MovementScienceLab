@@ -18,7 +18,15 @@ describe("session aggregation", () => {
 
   it("aggregates readings inside rep windows", () => {
     const result = aggregateReps(
-      [{ repIndex: 1, startedMs: 0, endedMs: 220, peakValue: 40, excursionDegrees: 35 }],
+      [{
+        repIndex: 1,
+        startedMs: 0,
+        endedMs: 220,
+        peakValue: 40,
+        excursionDegrees: 35,
+        durationMs: 220,
+        meanConfidence: 0.9,
+      }],
       readings,
     );
     expect(result[0]?.angleSummary.leftKneeFlexion?.samples).toBe(4);
