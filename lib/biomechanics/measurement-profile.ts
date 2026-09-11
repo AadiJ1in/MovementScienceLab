@@ -4,29 +4,11 @@ import {
   type AngleName,
   type AngleReading,
 } from "./angles";
-import { MOVEMENT_GUIDANCE } from "../pose/camera-guidance";
-import type { CaptureView, MovementType, PoseFrame } from "../pose/types";
-
-export const ANGLE_NAMES_BY_VIEW: Record<CaptureView, readonly AngleName[]> = {
-  front: [
-    "leftKneeFrontalDeviation",
-    "rightKneeFrontalDeviation",
-    "trunkLean",
-    "pelvicLineObliquity",
-    "leftShoulderElevation",
-    "rightShoulderElevation",
-  ],
-  side: [
-    "leftKneeFlexion",
-    "rightKneeFlexion",
-    "trunkLean",
-    "leftShoulderElevation",
-    "rightShoulderElevation",
-  ],
-};
+import { getExerciseDefinition } from "../exercises/registry";
+import type { MovementType, PoseFrame } from "../pose/types";
 
 export function angleNamesForMovement(movement: MovementType): readonly AngleName[] {
-  return ANGLE_NAMES_BY_VIEW[MOVEMENT_GUIDANCE[movement].view];
+  return getExerciseDefinition(movement).availableMetrics;
 }
 
 export function isAngleValidForMovement(angleName: AngleName, movement: MovementType): boolean {
@@ -34,22 +16,19 @@ export function isAngleValidForMovement(angleName: AngleName, movement: Movement
 }
 
 /**
- * Restricts 2D calculations to measurements that are interpretable in the
- * selected capture projection. Side-view trunk lean is recomputed from the
+ * Restricts 2D calculations to measurements registered for the selected
+ * exercise/capture projection. Side-view trunk lean is recomputed from the
  * most visible shoulder/hip chain because the far side is expected to be
  * partially occluded in a correctly positioned side-on capture.
  */
-export function computeAnglesForMovement(
-  frame: PoseFrame,
-  movement: MovementType,
-): AngleReading[] {
-  const view = MOVEMENT_GUIDANCE[movement].view;
-  const allowed = new Set<AngleName>(angleNamesForMovement(movement));
+export function computeAnglesForMovement(frame: PoseFrame, movement: MovementType): AngleReading[] {
+  const exercise = getExerciseDefinition(movement);
+  const allowed = new Set<AngleName>(exercise.availableMetrics);
   const generic = computeAnglesForFrame(frame).filter(
-    (reading) => allowed.has(reading.angleName) && !(view === "side" && reading.angleName === "trunkLean"),
+    (reading) => allowed.has(reading.angleName) && !(exercise.view === "side" && reading.angleName === "trunkLean"),
   );
 
-  if (view === "side") {
+  if (exercise.view === "side" && allowed.has("trunkLean")) {
     const sideTrunkLean = trunkLeanFromBestVisibleSide(frame);
     if (sideTrunkLean) generic.push(sideTrunkLean);
   }
