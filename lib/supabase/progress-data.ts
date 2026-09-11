@@ -12,6 +12,7 @@ const MOVEMENT_TYPES = new Set<MovementType>([
   "squat-front",
   "squat-side",
   "push-up-side",
+  "shoulder-abduction-front",
   "general-front",
   "general-side",
 ]);
