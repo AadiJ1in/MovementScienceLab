@@ -51,7 +51,7 @@ const SIDE_METRICS: readonly AngleName[] = [
   "rightShoulderElevation",
 ];
 
-const FULL_FRONT = [0, 11, 12, 23, 24, 25, 26, 27, 28, 31, 32] as const;
+const FULL_FRONT = [11, 12, 23, 24, 25, 26, 27, 28, 31, 32] as const;
 const SIDE_LEFT = [11, 23, 25, 27, 31] as const;
 const SIDE_RIGHT = [12, 24, 26, 28, 32] as const;
 const PUSH_LEFT = [11, 13, 23, 25, 27] as const;
@@ -77,7 +77,7 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
     secondaryMetrics: ["rightKneeFrontalDeviation", "pelvicLineObliquity", "trunkLean"],
     supportedMeasurementLabels: ["Knee tracking projection proxy", "Pelvic-line symmetry proxy", "Trunk alignment", "Shoulder symmetry"],
     cameraInstructions: "Face the camera squarely. Keep your full body visible, including both feet, and avoid rotating your torso away from the camera.",
-    calibration: { mode: "bilateral", requiredLandmarks: FULL_FRONT, description: "head, shoulders, hips, knees, ankles, and feet" },
+    calibration: { mode: "bilateral", requiredLandmarks: FULL_FRONT, description: "shoulders, hips, knees, ankles, and feet" },
     segmentation: { strategy: "none", signalAngles: [] },
     feedbackCapabilities: ["capture-quality", "within-session"], referenceTrajectorySupport: true, compatibleSourcedRules: [],
     shortDescription: "Track frontal-plane movement symmetry and alignment proxies.",
@@ -107,7 +107,7 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
     availableMetrics: FRONT_METRICS, primaryMetric: "leftKneeFrontalDeviation", secondaryMetrics: ["rightKneeFrontalDeviation", "pelvicLineObliquity", "trunkLean"],
     supportedMeasurementLabels: ["Knee tracking projection proxy", "Pelvic-line symmetry proxy", "Trunk alignment", "Shoulder symmetry"],
     cameraInstructions: "Face the camera squarely with your full body in frame. Keep both shoulders, hips, knees, ankles, and feet visible.",
-    calibration: { mode: "bilateral", requiredLandmarks: FULL_FRONT, description: "head, shoulders, hips, knees, ankles, and feet" },
+    calibration: { mode: "bilateral", requiredLandmarks: FULL_FRONT, description: "shoulders, hips, knees, ankles, and feet" },
     segmentation: { strategy: "none", signalAngles: [] },
     feedbackCapabilities: ["capture-quality"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
     shortDescription: "Explore supported frontal-plane measurements without exercise-specific claims.",
