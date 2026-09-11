@@ -16,10 +16,22 @@ jobs:
       - name: Download annotated KERAAL Group1A patient subset
         run: |
           mkdir -p .research-data/keraal/group1A
-          curl --fail --location --retry 4 --retry-delay 3 \
-            "https://keraal.enstb.org/data/group1A.tar.xz" \
-            -o .research-data/keraal/group1A.tar.xz
-          tar -xJf .research-data/keraal/group1A.tar.xz -C .research-data/keraal/group1A
+          archive=.research-data/keraal/group1A.tar.xz
+          url="https://keraal.enstb.org/data/group1A.tar.xz"
+          for attempt in 1 2 3 4 5 6; do
+            echo "KERAAL download attempt ${attempt}; existing bytes: $(stat -c%s "$archive" 2>/dev/null || echo 0)"
+            if curl --fail --location --continue-at - --retry 3 --retry-all-errors --retry-delay 3 \
+              "$url" -o "$archive"; then
+              break
+            fi
+            if [ "$attempt" -eq 6 ]; then
+              echo "KERAAL patient archive could not be downloaded after resumable retries" >&2
+              exit 1
+            fi
+            sleep $((attempt * 3))
+          done
+          xz -t "$archive"
+          tar -xJf "$archive" -C .research-data/keraal/group1A
       - name: Inventory patient annotations and BlazePose sequences
         run: |
           python - <<'PY'
