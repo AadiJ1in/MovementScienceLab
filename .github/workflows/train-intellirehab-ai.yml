@@ -6,6 +6,7 @@ on:
     paths:
       - "ml/build_intellirehab_features.py"
       - "ml/train_multiexercise_models.py"
+      - "ml/benchmark_task_models.py"
       - ".github/workflows/train-intellirehab-ai.yml"
       - "docs/dataset-registry.json"
   workflow_dispatch:
@@ -43,6 +44,11 @@ jobs:
             .research-output/intellirehab-models.json \
             --source-dataset IntelliRehabDS \
             --no-commercial-use-blocked
+      - name: Benchmark nonlinear and interpretable model families per task
+        run: |
+          python ml/benchmark_task_models.py \
+            .research-output/intellirehab-features.csv \
+            .research-output/intellirehab-benchmarks.json
       - name: Validate source and model integrity
         run: |
           python - <<'PY'
@@ -50,14 +56,17 @@ jobs:
           import pandas as pd
           df = pd.read_csv('.research-output/intellirehab-features.csv')
           model = json.load(open('.research-output/intellirehab-models.json'))
+          benchmark = json.load(open('.research-output/intellirehab-benchmarks.json'))
           assert df['subject_id'].nunique() >= 20, df['subject_id'].nunique()
           assert set(df['label'].unique()).issubset({0, 1})
-          assert 'repetition' not in next(m for m in model['models'] if m['status'] == 'trained-research-only')['features']
-          assert 'session_id' not in next(m for m in model['models'] if m['status'] == 'trained-research-only')['features']
+          first = next(m for m in model['models'] if m['status'] == 'trained-research-only')
+          assert 'repetition' not in first['features']
+          assert 'session_id' not in first['features']
+          assert len([t for t in benchmark['tasks'] if t['status'] == 'benchmarked']) >= 8
           print(df.groupby('exercise_id').agg(reps=('label','size'), subjects=('subject_id','nunique'), deviation_rate=('label','mean')).to_string())
-          for m in model['models']:
-              if m['status'] == 'trained-research-only':
-                  print(m['exerciseName'], m['validation'])
+          for task in benchmark['tasks']:
+              if task['status'] == 'benchmarked':
+                  print(task['exerciseName'], task['recommendedResearchModel'], task['recommendedMetrics'])
           PY
       - uses: actions/upload-artifact@v4
         with:
