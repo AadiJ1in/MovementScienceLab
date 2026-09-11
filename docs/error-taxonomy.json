@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "1.0.0",
+  "reviewed": "2026-09-11",
+  "purpose": "Research taxonomy for movement-quality deviations. Categories are not diagnoses and are not future-injury outcomes.",
+  "policy": {
+    "requiresSourceSupportedLabel": true,
+    "requiresMeasurementCompatibilityForRuntimeOutput": true,
+    "requiresClinicianReviewBeforeClinicalUse": true,
+    "forbidRebrandingAsInjuryDiagnosis": true,
+    "forbidRebrandingAsFutureInjuryProbability": true,
+    "multiLabelAllowed": true,
+    "uncertainStateRequired": true
+  },
+  "categories": [
+    {
+      "id": "range-of-motion-limited",
+      "displayName": "Range-of-motion limitation",
+      "examples": ["incomplete range of motion", "insufficient flexion/extension"],
+      "sources": [
+        "https://doi.org/10.1038/s41598-026-52118-1",
+        "https://keraal.enstb.org/KeraalDataset.html"
+      ],
+      "runtimeStatus": "research-only-until-task-specific-validation",
+      "measurementNotes": "Requires exercise-specific phase segmentation and validated joint-angle mapping."
+    },
+    {
+      "id": "trunk-compensation",
+      "displayName": "Trunk compensation",
+      "examples": ["excessive forward trunk lean", "loss of intended trunk posture"],
+      "sources": [
+        "https://doi.org/10.1038/s41598-026-52118-1",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/"
+      ],
+      "runtimeStatus": "research-only-until-task-specific-validation",
+      "measurementNotes": "2D trunk lean is camera-plane dependent and must not be treated as 3D spinal loading."
+    },
+    {
+      "id": "bilateral-asymmetry",
+      "displayName": "Bilateral movement asymmetry",
+      "examples": ["asymmetric weight distribution", "left/right timing or ROM difference"],
+      "sources": [
+        "https://doi.org/10.1038/s41598-026-52118-1",
+        "https://keraal.enstb.org/KeraalDataset.html"
+      ],
+      "runtimeStatus": "research-only-until-task-specific-validation",
+      "measurementNotes": "Webcam pose can quantify kinematic asymmetry proxies but cannot infer force distribution without additional sensing."
+    },
+    {
+      "id": "frontal-knee-control",
+      "displayName": "Frontal-plane knee-control deviation",
+      "examples": ["knee-valgus-like projection pattern"],
+      "sources": [
+        "https://doi.org/10.1038/s41598-026-52118-1",
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/"
+      ],
+      "runtimeStatus": "research-only-and-view-dependent",
+      "measurementNotes": "Current MediaPipe output is a 2D projection proxy, not diagnostic valgus/varus and not a validated injury threshold."
+    },
+    {
+      "id": "timing-sequencing",
+      "displayName": "Movement timing or sequencing deviation",
+      "examples": ["early compensation", "phase timing difference", "abnormal descent/ascent sequencing"],
+      "sources": [
+        "https://doi.org/10.1038/s41598-026-52118-1",
+        "https://keraal.enstb.org/KeraalDataset.html"
+      ],
+      "runtimeStatus": "research-only-until-temporal-external-validation",
+      "measurementNotes": "Requires reliable repetition segmentation and phase-normalized trajectory comparison."
+    },
+    {
+      "id": "exercise-specific-form-error",
+      "displayName": "Exercise-specific form deviation",
+      "examples": ["source-defined wrong variant", "clinician-annotated local error"],
+      "sources": [
+        "https://keraal.enstb.org/KeraalDataset.html",
+        "https://doi.org/10.5281/zenodo.12112951"
+      ],
+      "runtimeStatus": "source-and-exercise-specific",
+      "measurementNotes": "Do not generalize a source-defined wrong variant to unrelated exercises, populations, sensors, or diagnoses."
+    }
+  ],
+  "outputContract": {
+    "allowed": [
+      "reference-like",
+      "deviation-like",
+      "uncertain/outside validated domain",
+      "specific validated movement-error category",
+      "feature-level explanation",
+      "clinician review recommended"
+    ],
+    "forbidden": [
+      "you are injured",
+      "you will be injured",
+      "injury probability derived from movement-quality labels",
+      "diagnosis from webcam pose alone"
+    ]
+  }
+}
