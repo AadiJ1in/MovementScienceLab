@@ -1,0 +1,52 @@
+{
+  "id": "kneepad",
+  "name": "KneE-PAD",
+  "reviewed": "2026-09-11",
+  "primarySource": "https://doi.org/10.1038/s41597-025-04963-4",
+  "dataSource": "https://doi.org/10.5281/zenodo.12112951",
+  "officialCode": "https://github.com/ounospanas/KneE-PAD",
+  "population": {
+    "curatedParticipants": 31,
+    "populationType": "patients with knee pathologies",
+    "sourceCollectionContext": "267 patients monitored over six months; curated dataset contains 31 participants with common wrong variations"
+  },
+  "exercises": ["squat", "leg extension", "walking"],
+  "files": 2086,
+  "modalities": [
+    "8 sEMG/IMU wearable sensors",
+    "goniometer",
+    "heart-rate sensor",
+    "muscle oxygenation sensor",
+    "RGB session recording described in the source study"
+  ],
+  "labels": [
+    "correct execution",
+    "two curated common wrong variations per exercise"
+  ],
+  "annotation": "Wrongly executed exercises were curated and grouped by the study team into two common wrong variations for each exercise.",
+  "bestUse": [
+    "patient-domain lower-limb movement-quality research",
+    "multimodal camera-plus-wearable research",
+    "independent validation of exercise-specific error concepts",
+    "future sensor-fusion model development"
+  ],
+  "notValidFor": [
+    "treating wearable signals as interchangeable with MediaPipe landmarks",
+    "current injury diagnosis",
+    "future injury probability",
+    "webcam-only clinical validation"
+  ],
+  "measurementCompatibility": "separate-domain",
+  "webcamTransferability": "conceptual/label-level unless RGB files are actually distributed and independently mapped through the same MediaPipe pipeline",
+  "licenseStatus": "Zenodo record is marked open, but the rendered rights field does not state an explicit dataset license; verify rights before redistribution or commercial training",
+  "commercialUse": "blocked until dataset-specific license is explicit",
+  "clinicalDeployment": "blocked",
+  "requiredNextChecks": [
+    "inspect dataset.zip schema and metadata",
+    "verify whether RGB recordings are distributed or only wearable files",
+    "verify participant identifiers support participant-level splitting",
+    "verify exact label encoding for the two wrong variants",
+    "verify explicit dataset license",
+    "keep wearable and webcam evaluation metrics separate"
+  ]
+}
