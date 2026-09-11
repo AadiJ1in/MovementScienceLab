@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EXERCISE_REGISTRY, getExerciseDefinition } from "./registry";
 
-const IDS = ["squat-front", "squat-side", "push-up-side", "general-front", "general-side"] as const;
+const IDS = ["squat-front", "squat-side", "push-up-side", "shoulder-abduction-front", "general-front", "general-side"] as const;
 
 describe("exercise registry", () => {
   it("contains one complete definition for every supported movement", () => {
@@ -23,8 +23,18 @@ describe("exercise registry", () => {
     expect(squat.segmentation.config?.minConfidence).toBeGreaterThan(0);
   });
 
+  it("registers shoulder abduction as a prototype front-view angle cycle", () => {
+    const shoulder = getExerciseDefinition("shoulder-abduction-front");
+    expect(shoulder.developmentStatus).toBe("prototype");
+    expect(shoulder.view).toBe("front");
+    expect(shoulder.availableMetrics).toEqual(["leftShoulderElevation", "rightShoulderElevation", "trunkLean"]);
+    expect(shoulder.segmentation.strategy).toBe("angle-cycle");
+    expect(shoulder.referenceTrajectorySupport).toBe(false);
+  });
+
   it("does not claim reference-trajectory support for prototype movements without it", () => {
     expect(getExerciseDefinition("push-up-side").referenceTrajectorySupport).toBe(false);
+    expect(getExerciseDefinition("shoulder-abduction-front").referenceTrajectorySupport).toBe(false);
     expect(getExerciseDefinition("general-front").referenceTrajectorySupport).toBe(false);
   });
 });
