@@ -7,6 +7,7 @@ on:
       - "ml/build_intellirehab_features.py"
       - "ml/train_multiexercise_models.py"
       - "ml/benchmark_task_models.py"
+      - "ml/nested_grouped_task_evaluation.py"
       - ".github/workflows/train-intellirehab-ai.yml"
       - "docs/dataset-registry.json"
   workflow_dispatch:
@@ -14,7 +15,7 @@ on:
 jobs:
   train-intellirehab:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,6 +50,11 @@ jobs:
           python ml/benchmark_task_models.py \
             .research-output/intellirehab-features.csv \
             .research-output/intellirehab-benchmarks.json
+      - name: Run nested participant-grouped model and threshold selection
+        run: |
+          python ml/nested_grouped_task_evaluation.py \
+            .research-output/intellirehab-features.csv \
+            .research-output/intellirehab-nested-evaluation.json
       - name: Validate source and model integrity
         run: |
           python - <<'PY'
@@ -57,16 +63,21 @@ jobs:
           df = pd.read_csv('.research-output/intellirehab-features.csv')
           model = json.load(open('.research-output/intellirehab-models.json'))
           benchmark = json.load(open('.research-output/intellirehab-benchmarks.json'))
+          nested = json.load(open('.research-output/intellirehab-nested-evaluation.json'))
           assert df['subject_id'].nunique() >= 20, df['subject_id'].nunique()
           assert set(df['label'].unique()).issubset({0, 1})
           first = next(m for m in model['models'] if m['status'] == 'trained-research-only')
           assert 'repetition' not in first['features']
           assert 'session_id' not in first['features']
           assert len([t for t in benchmark['tasks'] if t['status'] == 'benchmarked']) >= 8
+          nested_tasks = [t for t in nested['tasks'] if t['status'] == 'nested-evaluated']
+          assert len(nested_tasks) >= 8
           print(df.groupby('exercise_id').agg(reps=('label','size'), subjects=('subject_id','nunique'), deviation_rate=('label','mean')).to_string())
           for task in benchmark['tasks']:
               if task['status'] == 'benchmarked':
-                  print(task['exerciseName'], task['recommendedResearchModel'], task['recommendedMetrics'])
+                  print('BENCHMARK', task['exerciseName'], task['recommendedResearchModel'], task['recommendedMetrics'])
+          for task in nested_tasks:
+              print('NESTED', task['exerciseName'], task['metrics'], task['selectedModelCounts'])
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -77,4 +88,4 @@ jobs:
 
 # IntelliRehabDS is used here as open labeled movement-quality evidence.
 # Correct/incorrect labels are not injury outcomes and must never be presented
-# as diagnosis or future-injury probabilities. Patient-level splitting remains mandatory.
+# as diagnosis or future-injury probabilities. Participant-level splitting remains mandatory.
