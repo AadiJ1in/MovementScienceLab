@@ -18,12 +18,14 @@ import {
   withoutExactDevice,
 } from "@/lib/pose/camera-preferences";
 import { evaluateCameraGuidance, KEYPOINT_VISIBILITY_THRESHOLD, MOVEMENT_GUIDANCE } from "@/lib/pose/camera-guidance";
+import { getPrimaryMeasurementMarker, type MeasurementMarker } from "@/lib/pose/measurement-marker";
 import { toPoseFrame, type MovementType, type PoseFrame } from "@/lib/pose/types";
 
 const WASM_ROOT = process.env.NEXT_PUBLIC_MEDIAPIPE_WASM_URL?.trim() || "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 const POSE_MODEL = process.env.NEXT_PUBLIC_MEDIAPIPE_MODEL_URL?.trim() || "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
 const REQUESTED_FPS = 30;
 const TELEMETRY_UI_INTERVAL_MS = 500;
+const POSE_UI_INTERVAL_MS = 100;
 
 export type AssessmentCaptureTelemetry = {
   width?: number;
@@ -54,11 +56,13 @@ type Props = {
 export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetryChange, overlay }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastVideoTimeRef = useRef(-1);
   const lastTelemetryUiUpdateRef = useRef(0);
+  const lastPoseUiUpdateRef = useRef(0);
   const monitorRef = useRef(new CapturePerformanceMonitor());
   const onFrameRef = useRef(onFrame);
   const onReadyRef = useRef(onReadyChange);
@@ -87,6 +91,7 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
   }, []);
 
   const guidance = useMemo(() => evaluateCameraGuidance(frame, movement), [frame, movement]);
+  const marker = useMemo(() => getPrimaryMeasurementMarker(frame, movement), [frame, movement]);
   const captureReady = captureEnabled && status === "ready" && guidance.ready;
   const mirror = telemetry?.facingMode !== "environment";
 
@@ -99,12 +104,13 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
   }, [telemetry]);
 
   useEffect(() => {
+    const performanceMonitor = monitorRef.current;
     if (!captureEnabled) {
       setStatus("idle");
       setFrame(null);
       setTelemetry(null);
       setError(null);
-      monitorRef.current.reset();
+      performanceMonitor.reset();
       onFrameRef.current(null);
       onReadyRef.current(false);
       return;
@@ -138,9 +144,10 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
         setStatus("loading");
         setError(null);
         setTelemetry(null);
-        monitorRef.current.reset();
+        performanceMonitor.reset();
         lastVideoTimeRef.current = -1;
         lastTelemetryUiUpdateRef.current = 0;
+        lastPoseUiUpdateRef.current = 0;
 
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera capture is not supported in this browser.");
 
@@ -228,13 +235,19 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
             drawResult(result, drawingUtils, canvas);
             const landmarks = result.landmarks[0];
             const nextFrame = landmarks?.length === 33 ? toPoseFrame(landmarks, timestamp, KEYPOINT_VISIBILITY_THRESHOLD) : null;
-            setFrame(nextFrame);
+
+            // Keep measurement/rep processing at inference rate while limiting React-only
+            // visual state updates to ~10 Hz for smoother long-running sessions.
             onFrameRef.current(nextFrame);
+            if (timestamp - lastPoseUiUpdateRef.current >= POSE_UI_INTERVAL_MS) {
+              lastPoseUiUpdateRef.current = timestamp;
+              setFrame(nextFrame);
+            }
 
             const poseConfidence = nextFrame
               ? nextFrame.keypoints.reduce((sum, point) => sum + point.visibility, 0) / nextFrame.keypoints.length
               : null;
-            const snapshot = monitorRef.current.add(
+            const snapshot = performanceMonitor.add(
               { timestampMs: timestamp, inferenceLatencyMs, poseConfidence },
               settings.frameRate,
               effectivePreference.targetResolution,
@@ -279,7 +292,7 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
       if (videoElement) videoElement.srcObject = null;
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
-      monitorRef.current.reset();
+      performanceMonitor.reset();
     };
   }, [captureEnabled, deviceId, facingMode, targetResolution]);
 
@@ -288,22 +301,36 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
     setPreference(next);
   }
 
+  async function enterFullScreen() {
+    const element = previewRef.current;
+    if (!element || !element.requestFullscreen) return;
+    try {
+      await element.requestFullscreen();
+    } catch {
+      // Browser may decline fullscreen (notably some mobile WebKit contexts).
+    }
+  }
+
   const config = MOVEMENT_GUIDANCE[movement];
   const qualityIssues = telemetry?.qualityIssues ?? [];
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className="overflow-hidden rounded-[2rem] bg-zinc-950 shadow-2xl shadow-zinc-950/10">
-        <div className="relative aspect-video min-h-[320px] w-full bg-zinc-950 sm:min-h-0">
-          <video ref={videoRef} playsInline muted className={`absolute inset-0 h-full w-full object-cover ${mirror ? "scale-x-[-1]" : ""}`} />
-          <canvas ref={canvasRef} className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${mirror ? "scale-x-[-1]" : ""}`} />
+        <div ref={previewRef} className="relative aspect-video min-h-[260px] w-full bg-zinc-950 sm:min-h-0">
+          <video ref={videoRef} playsInline muted className={`absolute inset-0 h-full w-full object-contain sm:object-cover ${mirror ? "scale-x-[-1]" : ""}`} />
+          <canvas ref={canvasRef} className={`pointer-events-none absolute inset-0 h-full w-full object-contain sm:object-cover ${mirror ? "scale-x-[-1]" : ""}`} />
           {captureEnabled && <GuideOverlay view={config.view} ready={captureReady} />}
+          {captureEnabled && marker && <MeasurementMarkerOverlay marker={marker} mirror={mirror} />}
           <div className="absolute left-4 top-4 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
             {status === "idle" && "Camera off"}
             {status === "loading" && "Starting camera…"}
             {status === "ready" && (frame ? `${frame.trustedKeypointCount}/33 landmarks trusted` : "Finding pose…")}
             {status === "error" && "Camera unavailable"}
           </div>
+          {captureEnabled && typeof document !== "undefined" && document.fullscreenEnabled && (
+            <button type="button" onClick={() => void enterFullScreen()} className="absolute bottom-4 left-4 rounded-lg bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur">Full screen</button>
+          )}
           {overlay && <div className="pointer-events-none absolute right-4 top-4">{overlay}</div>}
           {!captureEnabled && <div className="absolute inset-0 flex items-center justify-center p-6"><div className="max-w-sm rounded-2xl bg-black/75 p-5 text-center text-white backdrop-blur"><p className="font-semibold">Camera analysis is off</p><p className="mt-2 text-sm leading-6 text-white/70">Video stays in this browser. Enable the camera when you are ready to position yourself.</p></div></div>}
         </div>
@@ -384,7 +411,31 @@ function drawResult(result: PoseLandmarkerResult, drawingUtils: DrawingUtils | n
   const landmarks = result.landmarks[0];
   if (!landmarks || !drawingUtils) return;
   drawingUtils.drawConnectors(landmarks, PoseLandmarker.POSE_CONNECTIONS, { lineWidth: 3 });
-  drawingUtils.drawLandmarks(landmarks, { radius: 3, lineWidth: 1 });
+
+  context.save();
+  for (const landmark of landmarks) {
+    const confidence = typeof landmark.visibility === "number" ? Math.max(0, Math.min(1, landmark.visibility)) : 1;
+    context.globalAlpha = 0.18 + confidence * 0.82;
+    context.beginPath();
+    context.arc(landmark.x * canvas.width, landmark.y * canvas.height, confidence >= KEYPOINT_VISIBILITY_THRESHOLD ? 4 : 2.5, 0, Math.PI * 2);
+    context.fillStyle = confidence >= KEYPOINT_VISIBILITY_THRESHOLD ? "#7dd3fc" : "#a1a1aa";
+    context.fill();
+  }
+  context.restore();
+}
+
+function MeasurementMarkerOverlay({ marker, mirror }: { marker: MeasurementMarker; mirror: boolean }) {
+  const x = (mirror ? 1 - marker.x : marker.x) * 100;
+  const y = marker.y * 100;
+  return (
+    <div className="pointer-events-none absolute" style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -115%)" }}>
+      <div className="mb-1 h-3 w-3 rounded-full border-2 border-white bg-sky-400 shadow" aria-hidden="true" />
+      <div className="-translate-x-[42%] whitespace-nowrap rounded-lg bg-black/75 px-2.5 py-1.5 text-left text-white shadow-lg backdrop-blur">
+        <p className="text-[10px] font-medium text-white/65">{marker.label} · {marker.interpretation === "2d-projection-proxy" ? "2D proxy" : "2D angle"}</p>
+        <p className="text-sm font-semibold tabular-nums">{marker.value.toFixed(1)}°</p>
+      </div>
+    </div>
+  );
 }
 
 function TelemetryCell({ label, value }: { label: string; value: string }) {
