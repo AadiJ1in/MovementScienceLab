@@ -1,0 +1,85 @@
+name: Train KERAAL physician-consensus BlazePose AI
+
+on:
+  push:
+    branches: [ai-development]
+    paths:
+      - "ml/build_keraal_blazepose_features.py"
+      - "ml/train_multiexercise_models.py"
+      - "ml/benchmark_task_models.py"
+      - ".github/workflows/train-keraal-blazepose.yml"
+  workflow_dispatch:
+
+jobs:
+  train-keraal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml/requirements.txt
+      - name: Install ML dependencies
+        run: python -m pip install -r ml/requirements.txt
+      - name: Download annotated KERAAL Group2A BlazePose research subset
+        run: |
+          mkdir -p .research-data/keraal/group2A
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "https://keraal.enstb.org/data/group2A.tar.xz" \
+            -o .research-data/keraal/group2A.tar.xz
+          tar -xJf .research-data/keraal/group2A.tar.xz -C .research-data/keraal/group2A
+          test "$(find .research-data/keraal/group2A -type f -name '*.anvil' | wc -l)" -ge 100
+          test "$(find .research-data/keraal/group2A -type f -path '*blazepose*' -name '*.json' | wc -l)" -ge 50
+      - name: Build physician-consensus BlazePose features
+        run: |
+          python ml/build_keraal_blazepose_features.py \
+            .research-data/keraal/group2A \
+            .research-output/keraal-group2a-features.csv
+      - name: Train interpretable task-specific candidates
+        run: |
+          python ml/train_multiexercise_models.py \
+            .research-output/keraal-group2a-features.csv \
+            .research-output/keraal-group2a-models.json \
+            --source-dataset KERAAL-Group2A \
+            --commercial-use-blocked
+      - name: Benchmark model families by participant
+        run: |
+          python ml/benchmark_task_models.py \
+            .research-output/keraal-group2a-features.csv \
+            .research-output/keraal-group2a-benchmarks.json
+      - name: Validate consensus and leakage controls
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+
+          df = pd.read_csv('.research-output/keraal-group2a-features.csv')
+          models = json.load(open('.research-output/keraal-group2a-models.json'))
+          benchmark = json.load(open('.research-output/keraal-group2a-benchmarks.json'))
+
+          assert df['subject_id'].nunique() == 6, df['subject_id'].unique()
+          assert set(df['label'].unique()).issubset({0, 1})
+          assert df['annotator_count'].min() >= 2
+          trained = [m for m in models['models'] if m['status'] == 'trained-research-only']
+          assert len(trained) >= 2, trained
+          forbidden = {'recording_id', 'annotator_count', 'error_type_count', 'site'}
+          for model in trained:
+              assert forbidden.isdisjoint(model['features']), model['features']
+              assert model['deploymentGate']['commercialUseBlockedBySourceLicense'] is True
+              assert model['deploymentGate']['mayBeDisplayedAsInjuryProbability'] is False
+          print(df.groupby('exercise_name').agg(reps=('label','size'), subjects=('subject_id','nunique'), deviation_rate=('label','mean')).to_string())
+          for task in benchmark['tasks']:
+              print(task.get('exerciseName'), task.get('recommendedResearchModel'), task.get('recommendedMetrics'))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: keraal-group2a-blazepose-research-models
+          path: .research-output/
+          include-hidden-files: true
+          retention-days: 14
+
+# KERAAL is CC-BY-NC-SA. These artifacts are research validation only and
+# must not be shipped into a commercial hospital product without separate
+# permission. Correctness/error annotations are not future-injury outcomes.
