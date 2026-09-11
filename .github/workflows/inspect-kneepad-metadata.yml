@@ -1,0 +1,68 @@
+name: Inspect KneE-PAD label schema
+
+on:
+  push:
+    branches: [ai-development]
+    paths:
+      - ".github/workflows/inspect-kneepad-metadata.yml"
+      - "docs/sources/kneepad.json"
+  workflow_dispatch:
+
+jobs:
+  inspect-kneepad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download official metadata
+        run: |
+          mkdir -p .research-data/kneepad
+          curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \
+            "https://zenodo.org/records/12112951/files/metadata.txt?download=1" \
+            -o .research-data/kneepad/metadata.txt
+          echo '--- KneE-PAD official metadata ---'
+          cat .research-data/kneepad/metadata.txt
+      - name: Probe archive listing without adding data to repository
+        run: |
+          curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \
+            "https://zenodo.org/records/12112951/files/dataset.zip?download=1" \
+            -o .research-data/kneepad/dataset.zip
+          unzip -l .research-data/kneepad/dataset.zip | head -n 120 || true
+          python - <<'PY'
+          import json
+          import re
+          import zipfile
+          from pathlib import Path
+
+          archive = Path('.research-data/kneepad/dataset.zip')
+          with zipfile.ZipFile(archive) as zf:
+              names = [name for name in zf.namelist() if not name.endswith('/')]
+
+          extensions = {}
+          for name in names:
+              suffix = Path(name).suffix.lower() or '<none>'
+              extensions[suffix] = extensions.get(suffix, 0) + 1
+
+          tokens = {}
+          for name in names:
+              lower = name.lower()
+              for token in ('squat', 'extension', 'gait', 'walk', 'correct', 'wrong', 'incorrect', 'variant'):
+                  if token in lower:
+                      tokens[token] = tokens.get(token, 0) + 1
+
+          top_dirs = {}
+          for name in names:
+              top = name.split('/')[0]
+              top_dirs[top] = top_dirs.get(top, 0) + 1
+
+          print(json.dumps({
+              'fileCount': len(names),
+              'extensions': extensions,
+              'topDirectories': top_dirs,
+              'labelLikeFilenameTokens': tokens,
+              'examples': names[:100]
+          }, indent=2))
+          PY
+
+# This workflow only inspects source structure and label encoding. It does not
+# train a model or treat wearable signals as webcam-equivalent measurements.
