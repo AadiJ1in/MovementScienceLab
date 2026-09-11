@@ -6,6 +6,7 @@ import {
   type MovementRule,
 } from "@/lib/biomechanics/risk-rules";
 import type { PersistableRepSummary } from "@/lib/biomechanics/session-aggregation";
+import { MEASUREMENT_DEFINITION_VERSION } from "@/lib/progress/analytics";
 import type { MovementType } from "@/lib/pose/types";
 
 const INSERT_CHUNK_SIZE = 500;
@@ -51,6 +52,7 @@ export async function createMovementSession(
 
   const analysisConfig = {
     measurementVersion: MEASUREMENT_VERSION,
+    measurementDefinitionVersion: MEASUREMENT_DEFINITION_VERSION,
     keypointVisibilityThreshold: protocol.keypointVisibilityThreshold,
     storageIntervalMs: protocol.storageIntervalMs,
     rules: protocol.rules,
