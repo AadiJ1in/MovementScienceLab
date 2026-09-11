@@ -1,5 +1,5 @@
-import { computeAnglesForMovement } from "@/lib/biomechanics/measurement-profile";
-import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
+import { computeAnglesForMovement } from "../biomechanics/measurement-profile";
+import type { AngleName, AngleReading } from "../biomechanics/angles";
 import type { MovementType, PoseFrame } from "./types";
 
 export type MeasurementMarker = {
