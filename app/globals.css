@@ -8,16 +8,37 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  background: #f4f4f5;
-  color: #18181b;
-  font-family: Arial, Helvetica, sans-serif;
+html {
+  scroll-behavior: smooth;
 }
 
-/* Keep hardware-composited camera/video layers below all guidance and consent UI.
-   This prevents Safari/Chromium video layers from visually covering the
-   camera-off/loading/error overlays and presenting as an unexplained black rectangle. */
+body {
+  margin: 0;
+  background: #f7f8fa;
+  color: #18181b;
+  font-family: Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+select,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+select,
+input {
+  font: inherit;
+}
+
+::selection {
+  background: #bae6fd;
+  color: #0c4a6e;
+}
+
+/* Keep hardware-composited camera/video layers below all guidance and consent UI. */
 [class*="aspect-video"] {
   isolation: isolate;
 }
@@ -33,4 +54,15 @@ body {
 
 [class*="aspect-video"] > div {
   z-index: 20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
