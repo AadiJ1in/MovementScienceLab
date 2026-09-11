@@ -27,7 +27,11 @@ NON_FEATURE_COLUMNS = {
     "camera_id",
     "view",
     "site_id",
+    "site",
     "cohort",
+    "recording_id",
+    "annotator_count",
+    "error_type_count",
 }
 
 
