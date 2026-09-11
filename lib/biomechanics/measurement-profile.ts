@@ -5,7 +5,26 @@ import {
   type AngleReading,
 } from "./angles";
 import { getExerciseDefinition } from "../exercises/registry";
-import type { MovementType, PoseFrame } from "../pose/types";
+import type { CaptureView, MovementType, PoseFrame } from "../pose/types";
+
+/** Projection-level compatibility map retained for sourced-rule and reference-trajectory validation. */
+export const ANGLE_NAMES_BY_VIEW: Record<CaptureView, readonly AngleName[]> = {
+  front: [
+    "leftKneeFrontalDeviation",
+    "rightKneeFrontalDeviation",
+    "trunkLean",
+    "pelvicLineObliquity",
+    "leftShoulderElevation",
+    "rightShoulderElevation",
+  ],
+  side: [
+    "leftKneeFlexion",
+    "rightKneeFlexion",
+    "trunkLean",
+    "leftShoulderElevation",
+    "rightShoulderElevation",
+  ],
+};
 
 export function angleNamesForMovement(movement: MovementType): readonly AngleName[] {
   return getExerciseDefinition(movement).availableMetrics;
