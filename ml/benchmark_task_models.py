@@ -26,7 +26,14 @@ NON_FEATURE_COLUMNS = {
     "session_id",
     "view",
     "camera",
+    "camera_id",
     "position",
+    "site",
+    "site_id",
+    "cohort",
+    "recording_id",
+    "annotator_count",
+    "error_type_count",
 }
 
 
@@ -146,6 +153,7 @@ def benchmark_group(df: pd.DataFrame) -> dict:
         "nRows": int(len(df)),
         "nSubjects": int(subjects),
         "nFeatures": len(features),
+        "excludedMetadataColumns": sorted(column for column in NON_FEATURE_COLUMNS if column in df.columns),
         "results": results,
         "recommendedResearchModel": ranking[0]["model"],
         "recommendedMetrics": ranking[0],
@@ -161,7 +169,7 @@ def main(input_csv: Path, output_json: Path) -> None:
 
     tasks = [benchmark_group(group.copy()) for _, group in df.groupby("exercise_id", sort=True)]
     payload = {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "protocol": "subject-grouped out-of-fold per-task model-family benchmark",
         "positiveClass": "deviation/non-optimal movement",
         "tasks": tasks,
