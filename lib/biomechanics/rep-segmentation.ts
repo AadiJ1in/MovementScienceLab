@@ -33,7 +33,7 @@ export const DEFAULT_KNEE_REP_CONFIG: RepSegmentationConfig = {
   returnToleranceDegrees: 6,
   minExcursionDegrees: 15,
   baselineSmoothing: 0.08,
-  signalSmoothing: 0.28,
+  signalSmoothing: 0.65,
   minConfidence: 0.7,
   minRepDurationMs: 450,
   maxRepDurationMs: 8000,
