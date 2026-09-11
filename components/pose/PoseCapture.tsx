@@ -8,6 +8,12 @@ import {
 } from "@mediapipe/tasks-vision";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  CAMERA_PROFILE_STORAGE_KEY,
+  buildCameraConstraints,
+  parseCameraPreference,
+  withoutExactDevice,
+} from "@/lib/pose/camera-preferences";
+import {
   evaluateCameraGuidance,
   KEYPOINT_VISIBILITY_THRESHOLD,
   MOVEMENT_GUIDANCE,
@@ -39,6 +45,15 @@ type PoseCaptureProps = {
 
 type CaptureStatus = "idle" | "loading" | "ready" | "error";
 
+type ActiveCameraProfile = {
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  facingMode?: string;
+  usedSavedDevice: boolean;
+  fellBackFromSavedDevice: boolean;
+};
+
 export function PoseCapture({
   onFrame,
   onMovementChange,
@@ -62,6 +77,7 @@ export function PoseCapture({
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [captureEnabled, setCaptureEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeCameraProfile, setActiveCameraProfile] = useState<ActiveCameraProfile | null>(null);
 
   useEffect(() => {
     onFrameRef.current = onFrame;
@@ -88,6 +104,7 @@ export function PoseCapture({
       setPoseFrame(null);
       setDelegate(null);
       setError(null);
+      setActiveCameraProfile(null);
       onFrameRef.current?.(null);
       onCaptureReadyChangeRef.current?.(false);
       return;
@@ -100,6 +117,7 @@ export function PoseCapture({
         setStatus("loading");
         setError(null);
         setDelegate(null);
+        setActiveCameraProfile(null);
         lastVideoTimeRef.current = -1;
 
         if (!navigator.mediaDevices?.getUserMedia) {
@@ -147,14 +165,37 @@ export function PoseCapture({
 
         landmarkerRef.current = landmarker;
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
+        const storedPreference = parseCameraPreference(
+          window.localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY),
+        );
+        let usedSavedDevice = Boolean(storedPreference.deviceId);
+        let fellBackFromSavedDevice = false;
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: buildCameraConstraints(storedPreference),
+          });
+        } catch (cameraError) {
+          const recoverableSavedDeviceFailure =
+            Boolean(storedPreference.deviceId) &&
+            cameraError instanceof DOMException &&
+            (cameraError.name === "NotFoundError" || cameraError.name === "OverconstrainedError");
+
+          if (!recoverableSavedDeviceFailure) throw cameraError;
+
+          const fallbackPreference = withoutExactDevice(storedPreference);
+          window.localStorage.setItem(
+            CAMERA_PROFILE_STORAGE_KEY,
+            JSON.stringify(fallbackPreference),
+          );
+          usedSavedDevice = false;
+          fellBackFromSavedDevice = true;
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: buildCameraConstraints(fallbackPreference),
+          });
+        }
 
         if (cancelled) {
           stream.getTracks().forEach((track) => track.stop());
@@ -167,6 +208,16 @@ export function PoseCapture({
 
         video.srcObject = stream;
         await video.play();
+
+        const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {};
+        setActiveCameraProfile({
+          width: settings.width,
+          height: settings.height,
+          frameRate: settings.frameRate,
+          facingMode: settings.facingMode,
+          usedSavedDevice,
+          fellBackFromSavedDevice,
+        });
         setStatus("ready");
 
         const context = canvasRef.current?.getContext("2d") ?? null;
@@ -225,6 +276,7 @@ export function PoseCapture({
         setError(message);
         setStatus("error");
         setPoseFrame(null);
+        setActiveCameraProfile(null);
         onFrameRef.current?.(null);
         onCaptureReadyChangeRef.current?.(false);
       }
@@ -390,6 +442,23 @@ export function PoseCapture({
         <div className="rounded-2xl bg-zinc-100 p-4 text-sm leading-6 text-zinc-700">
           <strong className="text-zinc-950">Position:</strong> {config.instruction}
         </div>
+
+        {captureEnabled && activeCameraProfile && (
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-5 text-zinc-600">
+            <p className="font-semibold text-zinc-900">Active capture profile</p>
+            <p className="mt-1">
+              {activeCameraProfile.width && activeCameraProfile.height
+                ? `${activeCameraProfile.width} × ${activeCameraProfile.height}`
+                : "Resolution unavailable"}
+              {activeCameraProfile.frameRate ? ` · ${activeCameraProfile.frameRate.toFixed(1)} fps` : ""}
+              {activeCameraProfile.facingMode ? ` · ${activeCameraProfile.facingMode}` : ""}
+            </p>
+            {activeCameraProfile.usedSavedDevice && <p className="mt-1">Using the camera tested in Camera Lab.</p>}
+            {activeCameraProfile.fellBackFromSavedDevice && (
+              <p className="mt-1 text-amber-700">The saved camera was unavailable, so capture fell back to the saved facing/quality preference.</p>
+            )}
+          </div>
+        )}
 
         {captureEnabled && (
           <div
