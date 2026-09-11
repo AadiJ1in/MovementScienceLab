@@ -1,0 +1,87 @@
+name: Inspect KERAAL annotated patient BlazePose subset
+
+on:
+  push:
+    branches: [ai-development]
+    paths:
+      - ".github/workflows/inspect-keraal-group1a.yml"
+  workflow_dispatch:
+
+jobs:
+  inspect-keraal-group1a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download annotated KERAAL Group1A patient subset
+        run: |
+          mkdir -p .research-data/keraal/group1A
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "https://keraal.enstb.org/data/group1A.tar.xz" \
+            -o .research-data/keraal/group1A.tar.xz
+          tar -xJf .research-data/keraal/group1A.tar.xz -C .research-data/keraal/group1A
+      - name: Inventory patient annotations and BlazePose sequences
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+          import xml.etree.ElementTree as ET
+
+          root = Path('.research-data/keraal/group1A')
+          files = [p for p in root.rglob('*') if p.is_file()]
+          anvil = [p for p in files if p.suffix.lower() == '.anvil']
+          blaze = [p for p in files if 'blaze' in str(p).lower() and p.suffix.lower() == '.json']
+          video = [p for p in files if p.suffix.lower() in {'.mp4', '.avi'}]
+
+          subjects = set()
+          exercises = set()
+          sites = set()
+          naming_examples = []
+          for path in blaze:
+              stem = path.stem.replace('G1A-BP-', 'G1A-').replace('G1A-Anon-', 'G1A-')
+              match = re.search(r'G1A-(CTK|ELK|RTK)-([^\-]+)-([^\-]+)-(\d+)$', stem)
+              if match:
+                  exercise, subject, site, recording = match.groups()
+                  subjects.add(subject)
+                  exercises.add(exercise)
+                  sites.add(site)
+                  if len(naming_examples) < 12:
+                      naming_examples.append({'file': path.name, 'exercise': exercise, 'subject': subject, 'site': site, 'recording': recording})
+
+          annotation_track_names = set()
+          for path in anvil[:40]:
+              try:
+                  tree = ET.parse(path)
+                  for track in tree.getroot().iter('track'):
+                      if track.attrib.get('name'):
+                          annotation_track_names.add(track.attrib['name'])
+              except Exception:
+                  pass
+
+          print(json.dumps({
+              'totalFiles': len(files),
+              'annotationFiles': len(anvil),
+              'blazePoseFiles': len(blaze),
+              'videoFiles': len(video),
+              'subjects': sorted(subjects),
+              'subjectCount': len(subjects),
+              'exercises': sorted(exercises),
+              'sites': sorted(sites),
+              'namingExamples': naming_examples,
+              'annotationTrackNames': sorted(annotation_track_names),
+              'annotationExamples': [str(p.relative_to(root)) for p in anvil[:12]],
+              'blazeExamples': [str(p.relative_to(root)) for p in blaze[:12]],
+          }, indent=2))
+
+          if len(anvil) < 20:
+              raise SystemExit(f'Too few annotation files: {len(anvil)}')
+          if len(blaze) < 20:
+              raise SystemExit(f'Too few BlazePose files: {len(blaze)}')
+          if len(subjects) < 4:
+              raise SystemExit(f'Too few identifiable patient subjects: {len(subjects)}')
+          PY
+
+# KERAAL patient data are research-only here. The dataset license is
+# noncommercial/share-alike; no artifact from this workflow is eligible for
+# commercial hospital deployment without separate permission.
