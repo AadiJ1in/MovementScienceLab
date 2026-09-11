@@ -32,6 +32,10 @@ const OPTIONS: Record<MovementType, readonly MarkerOption[]> = {
     { angleName: "leftShoulderElevation", landmarkIndex: 11, label: "Shoulder elevation", interpretation: "2d-angle" },
     { angleName: "rightShoulderElevation", landmarkIndex: 12, label: "Shoulder elevation", interpretation: "2d-angle" },
   ],
+  "shoulder-abduction-front": [
+    { angleName: "leftShoulderElevation", landmarkIndex: 11, label: "Shoulder abduction", interpretation: "2d-angle" },
+    { angleName: "rightShoulderElevation", landmarkIndex: 12, label: "Shoulder abduction", interpretation: "2d-angle" },
+  ],
   "general-front": [
     { angleName: "leftKneeFrontalDeviation", landmarkIndex: 25, label: "Knee tracking proxy", interpretation: "2d-projection-proxy" },
     { angleName: "rightKneeFrontalDeviation", landmarkIndex: 26, label: "Knee tracking proxy", interpretation: "2d-projection-proxy" },
