@@ -1,6 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CAMERA_PROFILE_STORAGE_KEY,
+  DEFAULT_CAMERA_PREFERENCE,
+  buildCameraConstraints,
+  parseCameraPreference,
+  type CameraTargetResolution,
+} from "@/lib/pose/camera-preferences";
 
 type CameraOption = {
   deviceId: string;
@@ -20,11 +27,12 @@ export function CameraLab() {
   const streamRef = useRef<MediaStream | null>(null);
   const [cameras, setCameras] = useState<CameraOption[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [targetResolution, setTargetResolution] = useState<"720p" | "1080p">("720p");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">(DEFAULT_CAMERA_PREFERENCE.facingMode);
+  const [targetResolution, setTargetResolution] = useState<CameraTargetResolution>(DEFAULT_CAMERA_PREFERENCE.targetResolution);
   const [status, setStatus] = useState<"idle" | "starting" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<CaptureProfile>({});
+  const [saved, setSaved] = useState(false);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -47,6 +55,12 @@ export function CameraLab() {
   }, []);
 
   useEffect(() => {
+    const stored = parseCameraPreference(window.localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY));
+    setSelectedDeviceId(stored.deviceId ?? "");
+    setFacingMode(stored.facingMode);
+    setTargetResolution(stored.targetResolution);
+    setSaved(Boolean(window.localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY)));
+
     void refreshDevices();
     const mediaDevices = navigator.mediaDevices;
     mediaDevices?.addEventListener?.("devicechange", refreshDevices);
@@ -60,24 +74,17 @@ export function CameraLab() {
     try {
       setStatus("starting");
       setError(null);
+      setSaved(false);
       streamRef.current?.getTracks().forEach((track) => track.stop());
 
-      const dimensions =
-        targetResolution === "1080p"
-          ? { width: { ideal: 1920 }, height: { ideal: 1080 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 } };
-
-      const videoConstraints: MediaTrackConstraints = {
-        ...dimensions,
-        frameRate: { ideal: 30, min: 20 },
-        ...(selectedDeviceId
-          ? { deviceId: { exact: selectedDeviceId } }
-          : { facingMode: { ideal: facingMode } }),
+      const requestedPreference = {
+        ...(selectedDeviceId ? { deviceId: selectedDeviceId } : {}),
+        facingMode,
+        targetResolution,
       };
-
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: videoConstraints,
+        video: buildCameraConstraints(requestedPreference),
       });
       streamRef.current = stream;
       const video = videoRef.current;
@@ -101,6 +108,19 @@ export function CameraLab() {
       setStatus("error");
       setError(caught instanceof Error ? caught.message : "Unable to start camera.");
     }
+  }
+
+  function saveForAnalysis() {
+    if (status !== "ready") return;
+    const testedDeviceId = profile.deviceId || selectedDeviceId || undefined;
+    const preference = {
+      ...(testedDeviceId ? { deviceId: testedDeviceId } : {}),
+      facingMode,
+      targetResolution,
+    };
+    window.localStorage.setItem(CAMERA_PROFILE_STORAGE_KEY, JSON.stringify(preference));
+    setSelectedDeviceId(testedDeviceId ?? "");
+    setSaved(true);
   }
 
   const qualityLabel = useMemo(() => {
@@ -139,7 +159,7 @@ export function CameraLab() {
           Camera device
           <select
             value={selectedDeviceId}
-            onChange={(event) => setSelectedDeviceId(event.target.value)}
+            onChange={(event) => { setSelectedDeviceId(event.target.value); setSaved(false); }}
             className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm"
           >
             <option value="">Automatic camera</option>
@@ -155,7 +175,7 @@ export function CameraLab() {
             <select
               value={facingMode}
               disabled={Boolean(selectedDeviceId)}
-              onChange={(event) => setFacingMode(event.target.value as "user" | "environment")}
+              onChange={(event) => { setFacingMode(event.target.value as "user" | "environment"); setSaved(false); }}
               className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm disabled:bg-zinc-100"
             >
               <option value="user">Front / user</option>
@@ -166,7 +186,7 @@ export function CameraLab() {
             Target quality
             <select
               value={targetResolution}
-              onChange={(event) => setTargetResolution(event.target.value as "720p" | "1080p")}
+              onChange={(event) => { setTargetResolution(event.target.value as CameraTargetResolution); setSaved(false); }}
               className="mt-2 w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm"
             >
               <option value="720p">720p</option>
@@ -184,6 +204,15 @@ export function CameraLab() {
           </button>
         </div>
 
+        <button
+          type="button"
+          disabled={status !== "ready"}
+          onClick={saveForAnalysis}
+          className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-900 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400"
+        >
+          {saved ? "Saved for movement analysis" : "Use this camera for movement analysis"}
+        </button>
+
         <div className="rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700">
           <p className="font-semibold text-zinc-950">Negotiated capture</p>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -197,7 +226,7 @@ export function CameraLab() {
         {error && <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
 
         <p className="text-xs leading-5 text-zinc-500">
-          Camera quality is an engineering prerequisite only. Higher resolution or frame rate does not itself establish clinical validity.
+          Saved camera preferences stay in this browser and contain only a device identifier and requested capture settings. Camera quality is an engineering prerequisite only; it does not establish clinical validity.
         </p>
       </aside>
     </div>
