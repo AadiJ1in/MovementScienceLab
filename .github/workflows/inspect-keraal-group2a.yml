@@ -1,0 +1,81 @@
+name: Inspect KERAAL annotated BlazePose subset
+
+on:
+  push:
+    branches: [ai-development]
+    paths:
+      - ".github/workflows/inspect-keraal-group2a.yml"
+  workflow_dispatch:
+
+jobs:
+  inspect-keraal-group2a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download annotated KERAAL Group2A research subset
+        run: |
+          mkdir -p .research-data/keraal
+          curl --fail --location --retry 4 --retry-delay 3 \
+            "https://keraal.enstb.org/data/group2A.tar.xz" \
+            -o .research-data/keraal/group2A.tar.xz
+          mkdir -p .research-data/keraal/group2A
+          tar -xJf .research-data/keraal/group2A.tar.xz -C .research-data/keraal/group2A
+      - name: Inventory annotations and BlazePose sequences
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import xml.etree.ElementTree as ET
+
+          root = Path('.research-data/keraal/group2A')
+          files = [p for p in root.rglob('*') if p.is_file()]
+          anvil = [p for p in files if p.suffix.lower() == '.anvil']
+          blaze = [p for p in files if 'blaze' in str(p).lower() and p.suffix.lower() in {'.json', '.txt'}]
+          video = [p for p in files if p.suffix.lower() in {'.mp4', '.avi'}]
+
+          print(json.dumps({
+              'totalFiles': len(files),
+              'annotationFiles': len(anvil),
+              'blazePoseFiles': len(blaze),
+              'videoFiles': len(video),
+              'annotationExamples': [str(p.relative_to(root)) for p in anvil[:12]],
+              'blazeExamples': [str(p.relative_to(root)) for p in blaze[:12]],
+              'videoExamples': [str(p.relative_to(root)) for p in video[:12]],
+          }, indent=2))
+
+          if not anvil:
+              raise SystemExit('No ANVIL annotations found')
+          if not blaze:
+              raise SystemExit('No BlazePose files found')
+
+          sample_annotation = anvil[0]
+          tree = ET.parse(sample_annotation)
+          tracks = []
+          for track in tree.getroot().iter('track'):
+              item = {'name': track.attrib.get('name'), 'elements': []}
+              for el in track.findall('el'):
+                  attrs = {a.attrib.get('name', 'value'): a.text for a in el.findall('attribute')}
+                  item['elements'].append({'start': el.attrib.get('start'), 'end': el.attrib.get('end'), 'attributes': attrs})
+              tracks.append(item)
+          print('ANNOTATION_SAMPLE', sample_annotation.relative_to(root))
+          print(json.dumps(tracks[:8], indent=2)[:12000])
+
+          sample_blaze = next((p for p in blaze if p.suffix.lower() == '.json'), None)
+          if sample_blaze:
+              payload = json.loads(sample_blaze.read_text())
+              positions = payload.get('positions', {})
+              first_key = next(iter(positions), None)
+              first_frame = positions.get(first_key, {}) if first_key else {}
+              print('BLAZE_SAMPLE', sample_blaze.relative_to(root))
+              print(json.dumps({
+                  'frames': len(positions),
+                  'firstFrameKey': first_key,
+                  'landmarkCount': len(first_frame),
+                  'landmarkNames': list(first_frame)[:40],
+              }, indent=2))
+          PY
+
+# KERAAL is CC-BY-NC-SA and is used only for research validation here.
+# It includes clinical patients and physician/physiotherapist annotations, but
+# its correctness/error labels are not prospective injury outcomes.
