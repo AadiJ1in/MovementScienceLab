@@ -7,6 +7,13 @@ import { computeAnglesForMovement } from "@/lib/biomechanics/measurement-profile
 import type { AngleReading } from "@/lib/biomechanics/angles";
 import type { PoseFrame } from "@/lib/pose/types";
 import { INJURY_EVIDENCE } from "@/lib/ai/injury-risk-research";
+import {
+  emptySingleLegRepSamples,
+  summarizeSingleLegSide,
+  type SingleLegMeasurementPhase,
+  type SingleLegRepSamples,
+  type SingleLegSideSummary,
+} from "@/lib/ai/single-leg-knee-control";
 
 const MOVEMENT = "squat-front" as const;
 const REPS_PER_SIDE = 3;
@@ -20,43 +27,19 @@ const PHASES = [
 type Side = "left" | "right";
 type Phase = "setup" | (typeof PHASES)[number]["key"] | "side-complete" | "complete";
 
-type SideResult = {
-  side: Side;
-  peakKneeProxy: number | null;
-  medianKneeProxy: number | null;
-  peakTrunkLean: number | null;
-  meanConfidence: number | null;
-  samples: number;
-};
-
-type SideSamples = {
-  knee: number[];
-  trunk: number[];
-  confidence: number[];
-};
-
-function emptySamples(): SideSamples {
-  return { knee: [], trunk: [], confidence: [] };
+function createRepBuffer(): SingleLegRepSamples[] {
+  return Array.from({ length: REPS_PER_SIDE }, () => emptySingleLegRepSamples());
 }
 
-function summarize(side: Side, values: SideSamples): SideResult {
-  const sorted = [...values.knee].sort((a, b) => a - b);
-  const median = sorted.length
-    ? sorted.length % 2
-      ? sorted[Math.floor(sorted.length / 2)]
-      : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-    : null;
-  const meanConfidence = values.confidence.length
-    ? values.confidence.reduce((sum, value) => sum + value, 0) / values.confidence.length
-    : null;
-  return {
-    side,
-    peakKneeProxy: values.knee.length ? Math.max(...values.knee.map(Math.abs)) : null,
-    medianKneeProxy: median,
-    peakTrunkLean: values.trunk.length ? Math.max(...values.trunk.map(Math.abs)) : null,
-    meanConfidence,
-    samples: values.knee.length,
-  };
+function isMeasurementPhase(phase: Phase): phase is SingleLegMeasurementPhase {
+  return phase === "down" || phase === "hold" || phase === "up";
+}
+
+function qualityText(result: SingleLegSideSummary | null): string {
+  if (!result) return "Not measured";
+  if (result.dataQuality === "high") return "High capture quality";
+  if (result.dataQuality === "moderate") return "Moderate capture quality";
+  return "Low capture quality — repeat recommended";
 }
 
 export function SingleLegKneeControlAssessment() {
@@ -67,17 +50,27 @@ export function SingleLegKneeControlAssessment() {
   const [phaseStart, setPhaseStart] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
   const [liveKnee, setLiveKnee] = useState<AngleReading | null>(null);
-  const [leftResult, setLeftResult] = useState<SideResult | null>(null);
-  const [rightResult, setRightResult] = useState<SideResult | null>(null);
-  const samplesRef = useRef<SideSamples>(emptySamples());
-  const recordingRef = useRef(false);
+  const [leftResult, setLeftResult] = useState<SingleLegSideSummary | null>(null);
+  const [rightResult, setRightResult] = useState<SingleLegSideSummary | null>(null);
+  const samplesRef = useRef<SingleLegRepSamples[]>(createRepBuffer());
+  const phaseRef = useRef<Phase>("setup");
+  const repRef = useRef(1);
+  const sideRef = useRef<Side>("left");
 
   const phaseConfig = PHASES.find((item) => item.key === phase) ?? null;
   const active = Boolean(phaseConfig);
 
   useEffect(() => {
-    recordingRef.current = active;
-  }, [active]);
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    repRef.current = rep;
+  }, [rep]);
+
+  useEffect(() => {
+    sideRef.current = side;
+  }, [side]);
 
   useEffect(() => {
     if (!phaseConfig || phaseStart === null) return;
@@ -89,6 +82,7 @@ export function SingleLegKneeControlAssessment() {
       const index = PHASES.findIndex((item) => item.key === phaseConfig.key);
       if (index < PHASES.length - 1) {
         const next = PHASES[index + 1];
+        phaseRef.current = next.key;
         setPhase(next.key);
         setPhaseStart(performance.now());
         setRemainingMs(next.ms);
@@ -96,7 +90,10 @@ export function SingleLegKneeControlAssessment() {
       }
 
       if (rep < REPS_PER_SIDE) {
-        setRep((current) => current + 1);
+        const nextRep = rep + 1;
+        repRef.current = nextRep;
+        phaseRef.current = PHASES[0].key;
+        setRep(nextRep);
         setPhase(PHASES[0].key);
         setPhaseStart(performance.now());
         setRemainingMs(PHASES[0].ms);
@@ -113,21 +110,30 @@ export function SingleLegKneeControlAssessment() {
       setLiveKnee(null);
       return;
     }
+
     const readings = computeAnglesForMovement(frame, MOVEMENT);
-    const kneeName = side === "left" ? "leftKneeFrontalDeviation" : "rightKneeFrontalDeviation";
+    const currentSide = sideRef.current;
+    const kneeName = currentSide === "left" ? "leftKneeFrontalDeviation" : "rightKneeFrontalDeviation";
     const knee = readings.find((item) => item.angleName === kneeName) ?? null;
     const trunk = readings.find((item) => item.angleName === "trunkLean") ?? null;
     setLiveKnee(knee);
 
-    if (!recordingRef.current || !knee || knee.confidence < 0.7) return;
-    samplesRef.current.knee.push(knee.value);
-    if (trunk && trunk.confidence >= 0.7) samplesRef.current.trunk.push(trunk.value);
-    samplesRef.current.confidence.push(knee.confidence);
+    const currentPhase = phaseRef.current;
+    if (!isMeasurementPhase(currentPhase) || !knee || knee.confidence < 0.7) return;
+
+    const repSamples = samplesRef.current[repRef.current - 1];
+    if (!repSamples) return;
+
+    repSamples.kneeByPhase[currentPhase].push(knee.value);
+    repSamples.kneeConfidence.push(knee.confidence);
+    if (trunk && trunk.confidence >= 0.7) repSamples.trunkLean.push(trunk.value);
   }
 
   function startSide() {
     if (!ready) return;
-    samplesRef.current = emptySamples();
+    samplesRef.current = createRepBuffer();
+    repRef.current = 1;
+    phaseRef.current = PHASES[0].key;
     setRep(1);
     setPhase(PHASES[0].key);
     setPhaseStart(performance.now());
@@ -135,9 +141,9 @@ export function SingleLegKneeControlAssessment() {
   }
 
   function finishSide() {
-    recordingRef.current = false;
-    const result = summarize(side, samplesRef.current);
-    if (side === "left") {
+    const result = summarizeSingleLegSide(samplesRef.current);
+    phaseRef.current = sideRef.current === "left" ? "side-complete" : "complete";
+    if (sideRef.current === "left") {
       setLeftResult(result);
       setPhase("side-complete");
     } else {
@@ -149,19 +155,25 @@ export function SingleLegKneeControlAssessment() {
   }
 
   function moveToRight() {
+    sideRef.current = "right";
+    phaseRef.current = "setup";
+    repRef.current = 1;
     setSide("right");
     setRep(1);
-    samplesRef.current = emptySamples();
+    samplesRef.current = createRepBuffer();
     setPhase("setup");
   }
 
   function restart() {
+    sideRef.current = "left";
+    phaseRef.current = "setup";
+    repRef.current = 1;
     setSide("left");
     setPhase("setup");
     setRep(1);
     setLeftResult(null);
     setRightResult(null);
-    samplesRef.current = emptySamples();
+    samplesRef.current = createRepBuffer();
   }
 
   const progress = phaseConfig ? Math.min(1, Math.max(0, 1 - remainingMs / phaseConfig.ms)) : 0;
@@ -176,11 +188,13 @@ export function SingleLegKneeControlAssessment() {
         <p className="text-4xl font-semibold tabular-nums">{(remainingMs / 1000).toFixed(1)}</p>
       </div>
       <div className="mt-3 h-1.5 bg-white/15"><div className="h-full bg-white" style={{ width: `${progress * 100}%` }} /></div>
+      {phase === "hold" && <p className="mt-2 text-xs font-semibold text-white/80">Primary stable-measurement window</p>}
+      {phase === "reset" && <p className="mt-2 text-xs text-white/60">Reset frames are not included in the knee metric.</p>}
     </div>
   ) : null;
 
-  const asymmetry = leftResult?.peakKneeProxy !== null && leftResult?.peakKneeProxy !== undefined && rightResult?.peakKneeProxy !== null && rightResult?.peakKneeProxy !== undefined
-    ? Math.abs(leftResult.peakKneeProxy - rightResult.peakKneeProxy)
+  const stableAsymmetry = leftResult?.stableHoldKneeDeg !== null && leftResult?.stableHoldKneeDeg !== undefined && rightResult?.stableHoldKneeDeg !== null && rightResult?.stableHoldKneeDeg !== undefined
+    ? Math.abs(leftResult.stableHoldKneeDeg - rightResult.stableHoldKneeDeg)
     : null;
 
   return (
@@ -189,7 +203,7 @@ export function SingleLegKneeControlAssessment() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Research battery · single-leg squat</p>
           <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-[-0.03em] text-zinc-950 sm:text-5xl">Measure left and right frontal-plane knee control separately.</h1>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">This task is closer to the single-leg squat protocols used in prospective FPKPA injury studies. The app uses a standardized 5-second movement cycle plus a reset period; it does not claim to exactly reproduce every published protocol.</p>
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-600">This task is closer to the single-leg squat protocols used in prospective FPKPA injury studies. The app separates each repetition into lower, stabilization, rise, and reset phases, and quality-gates every repetition before including it in the summary.</p>
         </div>
         <div className="border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950">
           <strong>Safety:</strong> only use this test if you can balance on one leg comfortably. Stop for pain, instability, dizziness, or if you need external support. This is a research movement screen, not a diagnostic exam.
@@ -200,8 +214,8 @@ export function SingleLegKneeControlAssessment() {
         {[
           ["1", "Face forward", "Camera should be centered in front of you with your full stance leg visible."],
           ["2", `Test the ${side} leg`, `Stand on your ${side} leg; bend the opposite knee and keep it off the floor.`],
-          ["3", "Follow the pace", "2 seconds down · 1 second stabilize · 2 seconds up."],
-          ["4", "Three valid reps", "Stay balanced and move naturally; do not deliberately push your knee in or out for the camera."],
+          ["3", "Follow the pace", "2 seconds down · 1 second stabilize · 2 seconds up · 2 seconds reset."],
+          ["4", "Three quality-gated reps", "The AI requires enough high-confidence frames in the movement and stabilization windows before a rep counts."],
         ].map(([n, title, text]) => <div key={n} className="bg-white p-5"><p className="text-xs font-semibold text-zinc-400">{n}</p><h2 className="mt-2 text-sm font-semibold">{title}</h2><p className="mt-2 text-sm leading-6 text-zinc-600">{text}</p></div>)}
       </div>
 
@@ -223,7 +237,12 @@ export function SingleLegKneeControlAssessment() {
           <div className="border border-zinc-200 bg-[#111] p-5 text-white">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/50">AI tracking · stance knee</p>
             <p className="mt-4 text-4xl font-semibold tabular-nums">{liveKnee ? `${Math.abs(liveKnee.value).toFixed(1)}°` : "—"}</p>
-            <p className="mt-2 text-xs leading-5 text-white/55">2D hip–knee–ankle projection proxy. It is conceptually related to FPKPA but is not automatically interchangeable with a study-specific marker/video measurement.</p>
+            <p className="mt-2 text-xs leading-5 text-white/55">2D hip–knee–ankle projection proxy. The final result uses a stabilization-window median plus a 90th-percentile movement peak rather than a single raw maximum frame.</p>
+          </div>
+
+          <div className="border border-zinc-200 bg-white p-5 text-sm leading-6 text-zinc-600">
+            <p className="font-semibold text-zinc-950">Why the AI can reject a rep</p>
+            <p className="mt-2">A rep is excluded if there are too few usable movement frames, too few stabilization frames, or mean stance-knee landmark confidence is below 70%.</p>
           </div>
         </aside>
       </div>
@@ -231,11 +250,27 @@ export function SingleLegKneeControlAssessment() {
       {(leftResult || rightResult) && (
         <section className="mt-10 border-t border-zinc-300 pt-8">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Results</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">Side-specific knee-control measurements</h2>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight">Quality-gated side-specific knee-control measurements</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">The stable metric is the median knee-projection magnitude during the one-second stabilization window, aggregated across valid repetitions. Robust peaks use the 90th percentile to reduce single-frame outlier sensitivity.</p>
+
           <div className="mt-5 grid gap-px bg-zinc-200 sm:grid-cols-3">
-            <Result title="Left peak proxy" value={leftResult?.peakKneeProxy} />
-            <Result title="Right peak proxy" value={rightResult?.peakKneeProxy} />
-            <Result title="Peak side-to-side difference" value={asymmetry} />
+            <Result title="Left stable knee projection" value={leftResult?.stableHoldKneeDeg} />
+            <Result title="Right stable knee projection" value={rightResult?.stableHoldKneeDeg} />
+            <Result title="Stable side-to-side difference" value={stableAsymmetry} />
+          </div>
+
+          <div className="mt-px grid gap-px bg-zinc-200 sm:grid-cols-3">
+            <Result title="Left robust movement peak" value={leftResult?.robustPeakKneeDeg} />
+            <Result title="Right robust movement peak" value={rightResult?.robustPeakKneeDeg} />
+            <div className="bg-white p-5">
+              <p className="text-xs text-zinc-500">Valid repetitions</p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums">{leftResult ? `${leftResult.validRepCount}/${leftResult.totalRepCount} L` : "—"} · {rightResult ? `${rightResult.validRepCount}/${rightResult.totalRepCount} R` : "—"}</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <SideQualityCard side="Left" result={leftResult} />
+            <SideQualityCard side="Right" result={rightResult} />
           </div>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -262,4 +297,48 @@ export function SingleLegKneeControlAssessment() {
 
 function Result({ title, value }: { title: string; value: number | null | undefined }) {
   return <div className="bg-white p-5"><p className="text-xs text-zinc-500">{title}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{value === null || value === undefined ? "—" : `${value.toFixed(1)}°`}</p></div>;
+}
+
+function SideQualityCard({ side, result }: { side: string; result: SingleLegSideSummary | null }) {
+  return (
+    <article className="border border-zinc-200 bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">{side} side</p>
+          <h3 className="mt-1 font-semibold text-zinc-950">{qualityText(result)}</h3>
+        </div>
+        <span className="border border-zinc-200 px-2 py-1 text-xs font-semibold uppercase text-zinc-600">{result?.dataQuality ?? "—"}</span>
+      </div>
+      {result ? (
+        <>
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <Metric label="Rep variability" value={result.repVariabilityDeg === null ? "—" : `${result.repVariabilityDeg.toFixed(1)}°`} />
+            <Metric label="Mean confidence" value={result.meanKneeConfidence === null ? "—" : `${(result.meanKneeConfidence * 100).toFixed(0)}%`} />
+            <Metric label="Robust trunk lean" value={result.robustPeakTrunkLeanDeg === null ? "—" : `${result.robustPeakTrunkLeanDeg.toFixed(1)}°`} />
+            <Metric label="Valid reps" value={`${result.validRepCount}/${result.totalRepCount}`} />
+          </dl>
+          <div className="mt-5 divide-y divide-zinc-100 border-t border-zinc-200">
+            {result.reps.map((rep, index) => (
+              <div key={index} className="grid grid-cols-[44px_1fr_auto] items-center gap-3 py-2.5 text-xs">
+                <span className="font-semibold text-zinc-500">Rep {index + 1}</span>
+                <span className="text-zinc-600">{rep.valid ? "Included" : exclusionLabel(rep.exclusionReason)}</span>
+                <span className="font-semibold tabular-nums text-zinc-900">{rep.stableHoldKneeDeg === null ? "—" : `${rep.stableHoldKneeDeg.toFixed(1)}°`}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : <p className="mt-4 text-sm text-zinc-500">Complete this side to calculate quality-gated results.</p>}
+    </article>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return <div><dt className="text-zinc-500">{label}</dt><dd className="mt-1 font-semibold text-zinc-950">{value}</dd></div>;
+}
+
+function exclusionLabel(reason: SingleLegSideSummary["reps"][number]["exclusionReason"]): string {
+  if (reason === "too-few-active-samples") return "Excluded · too few movement frames";
+  if (reason === "too-few-hold-samples") return "Excluded · too few stabilization frames";
+  if (reason === "low-confidence") return "Excluded · low tracking confidence";
+  return "Excluded";
 }
