@@ -7,10 +7,15 @@ This checklist is a release blocker for any future work that attempts to convert
 - [ ] Target injury is defined before modeling.
 - [ ] Prediction horizon is explicit.
 - [ ] Prediction index time is explicit.
-- [ ] Every predictor is confirmed to exist before the index time.
+- [ ] Row-level `feature_cutoff_time` is confirmed to be at or before `index_time`.
+- [ ] `outcome_window_end` exactly matches the declared horizon.
+- [ ] Positive labels are reconciled with an adjudicated future injury event time.
+- [ ] Reused outcome-event IDs and overlapping windows are audited.
+- [ ] Any repeated-risk design that permits overlapping windows is pre-specified and reported as correlated repeated prediction opportunities.
 - [ ] Outcome adjudication method is documented.
 - [ ] Participant inclusion/exclusion criteria are documented.
 - [ ] Dataset/license/provenance are recorded.
+- [ ] The canonical cohort-audit JSON is retained with the model artifact.
 
 ## Camera measurement validity
 
