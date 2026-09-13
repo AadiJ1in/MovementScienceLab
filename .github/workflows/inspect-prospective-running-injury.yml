@@ -26,12 +26,10 @@ jobs:
         run: |
           mkdir -p .research-data/running-injury .research-output
           curl --fail --location --retry 5 --retry-delay 3 \
-            --user-agent "Mozilla/5.0 MovementScienceLab research validation" \
-            "https://pmc.ncbi.nlm.nih.gov/articles/instance/12987969/bin/41746_2026_2413_MOESM2_ESM.xlsx" \
+            "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41746-026-02413-y/MediaObjects/41746_2026_2413_MOESM2_ESM.xlsx" \
             -o .research-data/running-injury/supplementary-data1.xlsx
           curl --fail --location --retry 5 --retry-delay 3 \
-            --user-agent "Mozilla/5.0 MovementScienceLab research validation" \
-            "https://pmc.ncbi.nlm.nih.gov/articles/instance/12987969/bin/41746_2026_2413_MOESM3_ESM.xlsx" \
+            "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41746-026-02413-y/MediaObjects/41746_2026_2413_MOESM3_ESM.xlsx" \
             -o .research-data/running-injury/supplementary-data2.xlsx
           python - <<'PY'
           from pathlib import Path
