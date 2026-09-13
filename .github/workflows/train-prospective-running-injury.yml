@@ -55,7 +55,11 @@ jobs:
           metrics = report['aggregate_participant_balanced']
           for key in ['auroc', 'auprc', 'brier', 'balanced_accuracy', 'sensitivity', 'specificity']:
               assert 0 <= metrics[key] <= 1, (key, metrics[key])
-          print('Prospective injury benchmark passed research-only integrity gates.')
+          assert report['promotion']['research_candidate'] is False, (
+              'Do not silently promote this model: current strict grouped performance unexpectedly cleared the research gate.'
+          )
+          print('Prospective injury model correctly failed closed after strict grouped validation.')
+          print(report['promotion']['interpretation'])
           PY
       - uses: actions/upload-artifact@v4
         with:
