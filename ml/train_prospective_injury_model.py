@@ -1,8 +1,9 @@
 """Strict entry point for prospective injury-model research.
 
 A cohort-timing/leakage audit must pass before the nested benchmark is allowed
-to run. This prevents a manually asserted "feature timing audited" flag from
-substituting for timestamp-level checks in the canonical training workflow.
+to run. The exported research bundle is stamped with development-cohort
+identity/provenance so a later external evaluation can reject the exact same
+dataset and require an explicitly distinct cohort.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+
+import joblib
 
 from prospective_cohort_audit import audit_csv
 from prospective_injury_benchmark import benchmark
@@ -24,6 +27,7 @@ def main() -> None:
     parser.add_argument("output_model", type=Path)
     parser.add_argument("--horizon-days", type=int, required=True)
     parser.add_argument("--population", required=True)
+    parser.add_argument("--cohort-id", required=True)
     parser.add_argument("--index-time-definition", required=True)
     parser.add_argument("--camera-measurement-version", required=True)
     parser.add_argument("--bootstrap-samples", type=int, default=500)
@@ -42,6 +46,9 @@ def main() -> None:
         help="Optional path for the cohort leakage/timing audit. Defaults next to output_json.",
     )
     args = parser.parse_args()
+
+    if not args.cohort_id.strip():
+        raise SystemExit("--cohort-id must be non-empty.")
 
     audit = audit_csv(
         args.input_csv,
@@ -68,6 +75,29 @@ def main() -> None:
         camera_measurement_version=args.camera_measurement_version,
         feature_timing_audited=True,
         bootstrap_samples=args.bootstrap_samples,
+    )
+
+    # Stamp the frozen model with enough development identity to keep the
+    # external evaluator from accidentally evaluating the exact development
+    # file as though it were a new cohort. Participant-level independence still
+    # requires a separate explicit attestation because IDs are intentionally not
+    # embedded in the model artifact.
+    bundle = joblib.load(args.output_model)
+    bundle["developmentCohortId"] = args.cohort_id
+    bundle["developmentInputSha256"] = audit["inputSha256"]
+    bundle["developmentCohortAuditPassed"] = True
+    joblib.dump(bundle, args.output_model)
+
+    artifact = json.loads(args.output_json.read_text(encoding="utf-8"))
+    artifact["developmentCohort"] = {
+        "cohortId": args.cohort_id,
+        "inputSha256": audit["inputSha256"],
+        "cohortAuditPath": str(audit_path),
+        "cohortAuditPassed": True,
+    }
+    args.output_json.write_text(
+        json.dumps(artifact, indent=2, allow_nan=False) + "\n",
+        encoding="utf-8",
     )
 
 
