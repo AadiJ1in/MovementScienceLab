@@ -1,84 +1,131 @@
 import Link from "next/link";
 
-const CAPABILITIES = [
-  { title: "Camera-based tracking", text: "MediaPipe pose estimation runs on ordinary browser camera input." },
-  { title: "Range-of-motion measurement", text: "Supported 2D joint-angle measurements are calculated from trusted landmarks." },
-  { title: "Repetition analysis", text: "Exercise-specific rep logic is enabled only where the current detector is supported." },
-  { title: "Movement-quality feedback", text: "Descriptive biomechanical measurements and capture-quality guidance stay separate from diagnosis." },
-  { title: "Longitudinal progress", text: "Compatible sessions can be compared without mixing movement, view, or measurement definitions." },
+const FEATURES = [
+  {
+    eyebrow: "Assessment",
+    title: "Guided knee-control screen",
+    text: "Five paced squats with explicit 3-second lowering, stabilization, rise, and reset cues.",
+    href: "/assessment",
+  },
+  {
+    eyebrow: "AI measurement",
+    title: "Visible biomechanics, not a hidden black box",
+    text: "See knee-deviation proxies, trunk lean, pelvic-line obliquity, pose confidence, and capture telemetry while you move.",
+    href: "/assessment",
+  },
+  {
+    eyebrow: "Evidence",
+    title: "Prospective injury research stays attached to the result",
+    text: "Research associations are shown with the population, task, source, and limitations instead of being converted into a fabricated injury probability.",
+    href: "/research",
+  },
+  {
+    eyebrow: "Progress",
+    title: "Your own baseline over time",
+    text: "Compare only compatible sessions and measurement versions so longitudinal trends remain interpretable.",
+    href: "/progress",
+  },
 ] as const;
 
 export default function Home() {
   return (
-    <main className="overflow-hidden bg-[#f7f8fa]">
-      <section className="relative border-b border-zinc-200/70 bg-[radial-gradient(circle_at_78%_15%,#bae6fd_0,transparent_28%),radial-gradient(circle_at_12%_0%,#e0f2fe_0,transparent_24%),linear-gradient(#fff,#f7f8fa)]">
-        <div className="mx-auto grid min-h-[74vh] max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_.95fr] lg:px-8 lg:py-24">
+    <main className="min-h-screen bg-[#f5f5f2] text-zinc-950">
+      <section className="mx-auto max-w-7xl px-4 pb-8 pt-10 sm:px-6 lg:px-8 lg:pt-14">
+        <div className="flex flex-wrap items-end justify-between gap-6 border-b border-zinc-300 pb-5">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">Movement Science Lab</p>
-            <h1 className="mt-5 max-w-3xl text-5xl font-semibold tracking-[-0.045em] text-zinc-950 sm:text-6xl lg:text-7xl">Objective movement analysis using an ordinary camera.</h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-600">Use your camera to measure and understand movement with pose tracking, supported joint-angle measurements, repetition analysis, movement-quality feedback, and longitudinal session data.</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/assessment" className="rounded-xl bg-zinc-950 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-zinc-950/10 transition hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-sky-500">Start Movement Assessment</Link>
-              <a href="#how-it-works" className="rounded-xl bg-white px-6 py-3.5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-zinc-300 transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-sky-500">See How It Works</a>
-            </div>
-            <p className="mt-5 max-w-xl text-xs leading-5 text-zinc-500">Movement Science Lab provides camera-derived movement measurements. It is not a medical diagnosis or injury-prediction system.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Movement Science Lab</p>
+            <h1 className="mt-3 max-w-4xl text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+              AI-assisted movement assessment built around measurable biomechanics.
+            </h1>
           </div>
+          <p className="max-w-sm text-sm leading-6 text-zinc-600">
+            Camera-based pose tracking, standardized assessments, evidence-linked research context, and longitudinal movement data.
+          </p>
+        </div>
+      </section>
 
-          <div className="relative mx-auto w-full max-w-xl">
-            <div className="absolute -inset-8 rounded-[3rem] bg-sky-200/30 blur-3xl" />
-            <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 p-5 shadow-2xl shadow-zinc-950/20">
-              <div className="flex items-center justify-between text-xs text-white/60"><span>Live movement assessment</span><span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-emerald-300">Camera ready</span></div>
-              <div className="mt-5 aspect-video rounded-[1.5rem] bg-[radial-gradient(circle_at_50%_40%,#3f3f46_0,#18181b_45%,#09090b_100%)] p-6">
-                <div className="relative mx-auto h-full w-[42%] rounded-[45%] border-2 border-dashed border-sky-300/70">
-                  <span className="absolute left-1/2 top-[18%] h-5 w-5 -translate-x-1/2 rounded-full bg-sky-300" />
-                  <span className="absolute left-1/2 top-[28%] h-[38%] w-1 -translate-x-1/2 bg-sky-300" />
-                  <span className="absolute left-[20%] top-[33%] h-1 w-[60%] bg-sky-300" />
-                  <span className="absolute left-[28%] top-[61%] h-1 w-[44%] bg-sky-300" />
-                  <span className="absolute left-[34%] top-[61%] h-[27%] w-1 rotate-6 bg-sky-300" />
-                  <span className="absolute right-[34%] top-[61%] h-[27%] w-1 -rotate-6 bg-sky-300" />
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-950">Featured</h2>
+          <Link href="/validation" className="text-xs font-medium text-zinc-500 underline underline-offset-4">Validation status</Link>
+        </div>
+
+        <div className="grid gap-px bg-zinc-300 lg:grid-cols-[1.55fr_.85fr]">
+          <Link href="/assessment" className="group relative min-h-[420px] overflow-hidden bg-[#101010] p-6 text-white sm:p-8">
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              <div className="flex items-center justify-between gap-4">
+                <span className="border border-white/25 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/75">New assessment</span>
+                <span className="text-xs text-emerald-300">AI pose tracking · browser based</span>
+              </div>
+
+              <div className="my-10 flex flex-1 items-center justify-center">
+                <div className="relative h-60 w-48 border border-white/15">
+                  <div className="absolute left-1/2 top-5 h-8 w-8 -translate-x-1/2 rounded-full border border-white/70" />
+                  <div className="absolute left-1/2 top-14 h-24 w-px -translate-x-1/2 bg-white/65" />
+                  <div className="absolute left-9 right-9 top-[78px] h-px bg-white/65" />
+                  <div className="absolute left-[63px] top-[151px] h-20 w-px rotate-[22deg] bg-white/65" />
+                  <div className="absolute right-[63px] top-[151px] h-20 w-px -rotate-[22deg] bg-white/65" />
+                  <div className="absolute left-[44px] top-[180px] border border-amber-300 bg-black/70 px-2 py-1 text-[10px] text-amber-200">Knee proxy 12.4°</div>
                 </div>
               </div>
-              <div className="mt-5 grid grid-cols-3 gap-3 text-white">
-                <PreviewMetric label="Knee flexion" value="87°" />
-                <PreviewMetric label="Confidence" value="High" />
-                <PreviewMetric label="Reps" value="6" />
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">AI knee-control research assessment</p>
+                <h3 className="mt-3 max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">A clearer squat assessment from setup to evidence.</h3>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65">Follow a paced five-rep protocol while the AI pose model measures frontal-plane knee deviation, trunk lean, pelvic alignment, symmetry, and tracking quality.</p>
+                <p className="mt-5 text-sm font-semibold">Start assessment →</p>
               </div>
             </div>
+          </Link>
+
+          <div className="grid gap-px bg-zinc-300 sm:grid-cols-2 lg:grid-cols-1">
+            <Link href="/account" className="bg-white p-6 transition hover:bg-zinc-50">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Account</p>
+              <h3 className="mt-3 text-xl font-semibold tracking-tight">Sign in is now one click away.</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-600">Save assessments, establish your baseline, and review progress from a dedicated account page.</p>
+              <p className="mt-5 text-sm font-semibold">Sign in / Account →</p>
+            </Link>
+            <Link href="/progress" className="bg-white p-6 transition hover:bg-zinc-50">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Longitudinal data</p>
+              <h3 className="mt-3 text-xl font-semibold tracking-tight">Track compatible measurements over time.</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-600">Progress filters exercise, camera view, measurement definition, and implementation version before comparing sessions.</p>
+              <p className="mt-5 text-sm font-semibold">Open progress →</p>
+            </Link>
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">How it works</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950 sm:text-4xl">From camera setup to understandable movement data.</h2>
-          <p className="mt-4 text-base leading-7 text-zinc-600">The default workflow hides research controls and walks a patient through movement selection, camera setup, calibration, exercise capture, and results.</p>
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-end justify-between gap-4 border-b border-zinc-300 pb-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">System</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">What the platform actually does</h2>
+          </div>
+          <p className="hidden max-w-md text-right text-xs leading-5 text-zinc-500 md:block">AI and research claims remain separated from clinical diagnosis. Every risk association should be traceable to its source and task.</p>
         </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {CAPABILITIES.map((item, index) => (
-            <div key={item.title} className="rounded-[1.5rem] bg-white p-5 shadow-sm ring-1 ring-zinc-200/80">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-sky-700">{index + 1}</span>
-              <h3 className="mt-5 font-semibold text-zinc-950">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{item.text}</p>
-            </div>
+
+        <div className="grid gap-px bg-zinc-300 md:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.map((item) => (
+            <Link key={item.title} href={item.href} className="group min-h-[230px] bg-white p-5 transition hover:bg-zinc-50">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">{item.eyebrow}</p>
+              <h3 className="mt-5 text-lg font-semibold tracking-tight text-zinc-950">{item.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-zinc-600">{item.text}</p>
+              <p className="mt-6 text-sm font-semibold text-zinc-900">Explore →</p>
+            </Link>
           ))}
         </div>
       </section>
 
-      <section className="border-y border-zinc-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
+      <section className="border-y border-zinc-300 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-zinc-500">Research stays available</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-950">Advanced controls moved out of the patient path—not removed.</h2>
-            <p className="mt-4 max-w-3xl text-base leading-7 text-zinc-600">Researchers can still inspect raw metrics, confidence, source provenance, rule configuration, angle traces, reference comparison, camera telemetry, diagnostics, validation material, and experimental dual-camera tools.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Scientific boundary</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">Measure aggressively. Claim conservatively.</h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">The platform can quantify camera-derived movement, run research movement-quality models, and link features to prospective injury literature. It does not label a person as injured or guarantee that an injury will occur from a webcam squat.</p>
           </div>
-          <Link href="/research" className="rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50">Open Research & Validation</Link>
+          <Link href="/research" className="border border-zinc-950 px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-zinc-950 hover:text-white">Research & methodology</Link>
         </div>
       </section>
     </main>
   );
-}
-
-function PreviewMetric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-white/8 p-3"><p className="text-[10px] uppercase tracking-[0.12em] text-white/45">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>;
 }
