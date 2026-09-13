@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Inspect the published 2026 prospective running-injury workbooks.
 
-This script intentionally performs schema/provenance inspection before any model is
-trained. It never guesses an injury target or participant identifier. The resulting
-JSON artifact is reviewed before a prognostic model pipeline is enabled.
+The public processed files contain participant-weeks but intentionally omit a direct
+participant identifier. Before any prognostic validation is attempted, this script
+checks whether invariant baseline/genotype fields can form conservative grouping
+fingerprints. These fingerprints are for leakage prevention only; they are never
+presented as recovered identities.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -48,6 +51,37 @@ def column_summary(frame: pd.DataFrame, column: str) -> dict[str, Any]:
     }
 
 
+def fingerprint_diagnostics(frame: pd.DataFrame) -> dict[str, Any]:
+    snps = [column for column in frame.columns if column.lower().startswith("rs")]
+    strategies = {
+        "snps_only": snps,
+        "snps_sex": snps + (["sex"] if "sex" in frame.columns else []),
+        "snps_sex_age": snps
+        + (["sex"] if "sex" in frame.columns else [])
+        + (["Age"] if "Age" in frame.columns else []),
+    }
+    diagnostics: dict[str, Any] = {}
+    for name, columns in strategies.items():
+        if not columns:
+            continue
+        normalized = frame[columns].fillna("<NA>").astype(str)
+        hashes = normalized.apply(
+            lambda row: hashlib.sha256("|".join(row.tolist()).encode("utf-8")).hexdigest()[:16],
+            axis=1,
+        )
+        sizes = hashes.value_counts()
+        diagnostics[name] = {
+            "columns": columns,
+            "unique_groups": int(hashes.nunique()),
+            "min_group_rows": int(sizes.min()),
+            "median_group_rows": float(sizes.median()),
+            "max_group_rows": int(sizes.max()),
+            "single_row_groups": int((sizes == 1).sum()),
+            "groups_over_60_rows": int((sizes > 60).sum()),
+        }
+    return diagnostics
+
+
 def inspect_workbook(path: Path) -> dict[str, Any]:
     workbook = pd.ExcelFile(path, engine="openpyxl")
     sheets: list[dict[str, Any]] = []
@@ -59,6 +93,12 @@ def inspect_workbook(path: Path) -> dict[str, Any]:
                 "sheet": sheet_name,
                 "rows": int(len(frame)),
                 "columns": int(len(frame.columns)),
+                "outcome": {
+                    "column": "RRI" if "RRI" in frame.columns else None,
+                    "positive_rows": int((frame["RRI"] == 1).sum()) if "RRI" in frame.columns else None,
+                    "negative_rows": int((frame["RRI"] == 0).sum()) if "RRI" in frame.columns else None,
+                },
+                "fingerprint_diagnostics": fingerprint_diagnostics(frame),
                 "column_summaries": [column_summary(frame, column) for column in frame.columns],
             }
         )
@@ -80,6 +120,7 @@ def main() -> None:
             "population": "142 competitive endurance runners followed prospectively for 12 months",
             "published_samples": 6181,
             "published_injury_instances": 564,
+            "prediction_horizon": "information preceding each week -> RRI occurrence within that week",
             "intended_use": "prospective running-related injury research only",
             "clinical_deployment_blocked": True,
             "reason": "Published study reports no independent external validation and states models are not ready for clinical application.",
@@ -99,7 +140,9 @@ def main() -> None:
                 if column["label_candidate"] or column["id_candidate"] or column["time_candidate"]
             ]
             print(f"  {sheet['sheet']}: {sheet['rows']} rows x {sheet['columns']} columns")
+            print(f"    outcome: {sheet['outcome']}")
             print(f"    possible identity/time/outcome fields: {candidates[:30]}")
+            print(f"    leakage-prevention grouping diagnostics: {sheet['fingerprint_diagnostics']}")
 
 
 if __name__ == "__main__":
