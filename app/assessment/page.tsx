@@ -1,9 +1,9 @@
-import { GuidedAssessment } from "@/components/assessment/GuidedAssessment";
+import { KneeRiskAssessment } from "@/components/assessment/KneeRiskAssessment";
 
 export default function AssessmentPage() {
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#e0f2fe_0,transparent_34%),linear-gradient(#fafafa,#f4f4f5)]">
-      <GuidedAssessment />
+    <main className="min-h-screen bg-[#f5f5f2]">
+      <KneeRiskAssessment />
     </main>
   );
 }
