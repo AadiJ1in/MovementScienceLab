@@ -21,10 +21,17 @@ This checklist is a release blocker for any future work that attempts to convert
 
 - [ ] Camera/pose implementation has a version identifier.
 - [ ] Single-leg squat protocol matches the intended measurement definition.
+- [ ] A measurement-validation report contains only one `camera_measurement_version`.
 - [ ] Low-confidence repetitions are rejected rather than imputed as normal movement.
-- [ ] Same-camera-domain agreement is quantified against an accepted reference measurement.
-- [ ] Repeatability/retest reliability is quantified.
+- [ ] Test-retest data use a pre-specified session pair.
+- [ ] Absolute-agreement ICC, SEM, and MDC95 are reported for test-retest measurements.
+- [ ] Test-retest bias and 95% Bland-Altman limits of agreement are reported.
+- [ ] Same-camera-domain agreement is quantified against an accepted reference measurement when a criterion reference is available.
+- [ ] Reference agreement reports bias, limits of agreement, MAE, RMSE, and participant-cluster uncertainty.
+- [ ] Correlation is not interpreted as a substitute for agreement.
 - [ ] Measurement error is characterized across supported devices and capture conditions.
+- [ ] Any algorithm/protocol change that can alter the measurement creates a new version and triggers renewed validation.
+- [ ] Clinical acceptability limits, if used, were specified before the validation results were inspected.
 
 ## Internal model evaluation
 
@@ -43,7 +50,12 @@ This checklist is a release blocker for any future work that attempts to convert
 
 ## Generalization
 
+- [ ] Leave-one-site-out stress testing is reported when multi-site development data are available.
+- [ ] Site holdout is not mislabeled as external validation when sites come from the same development data-generating program.
 - [ ] Independent external cohort has been evaluated without refitting to its outcomes.
+- [ ] External model-family choice, calibration, features, and operating threshold remain frozen from development.
+- [ ] External cohort identity differs from the development cohort and the input file is not the development file.
+- [ ] Participant independence from the development cohort is verified.
 - [ ] External population/protocol differences are documented.
 - [ ] Calibration transport is assessed externally.
 - [ ] Performance is evaluated across relevant subgroups and sites.
