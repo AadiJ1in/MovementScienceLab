@@ -1,0 +1,64 @@
+name: Train prospective running-injury research AI
+
+on:
+  push:
+    branches: [ai-development]
+    paths:
+      - "ml/train_prospective_running_injury_model.py"
+      - "ml/requirements.txt"
+      - ".github/workflows/train-prospective-running-injury.yml"
+  workflow_dispatch:
+
+jobs:
+  train-prospective-running-injury:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml/requirements.txt
+      - name: Install research dependencies
+        run: python -m pip install -r ml/requirements.txt
+      - name: Download class-1 prospective weekly injury data
+        run: |
+          mkdir -p .research-data/running-injury .research-output
+          curl --fail --location --retry 5 --retry-delay 3 \
+            "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41746-026-02413-y/MediaObjects/41746_2026_2413_MOESM2_ESM.xlsx" \
+            -o .research-data/running-injury/class1-weekly.xlsx
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.research-data/running-injury/class1-weekly.xlsx')
+          data = path.read_bytes()
+          assert len(data) > 100_000
+          assert data[:2] == b'PK'
+          print('Validated publisher XLSX:', len(data), 'bytes')
+          PY
+      - name: Run nested pseudoparticipant-grouped prognostic benchmark
+        run: |
+          python ml/train_prospective_running_injury_model.py \
+            .research-data/running-injury/class1-weekly.xlsx \
+            --output .research-output/prospective-running-injury-model-evaluation.json
+      - name: Enforce research-only deployment gates
+        run: |
+          python - <<'PY'
+          import json
+          report = json.load(open('.research-output/prospective-running-injury-model-evaluation.json'))
+          assert report['rows'] == 6181
+          assert report['positive_rows'] == 564
+          assert report['validation_design']['pseudogroups'] == 141
+          assert report['clinical_deployment_blocked'] is True
+          assert len(report['blockers']) >= 4
+          assert report['prediction_target'].startswith('RRI occurrence within a week')
+          metrics = report['aggregate_participant_balanced']
+          for key in ['auroc', 'auprc', 'brier', 'balanced_accuracy', 'sensitivity', 'specificity']:
+              assert 0 <= metrics[key] <= 1, (key, metrics[key])
+          print('Prospective injury benchmark passed research-only integrity gates.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prospective-running-injury-research-evaluation
+          path: .research-output/prospective-running-injury-model-evaluation.json
+          retention-days: 14
