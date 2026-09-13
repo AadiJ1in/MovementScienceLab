@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -37,6 +36,13 @@ from sklearn.preprocessing import StandardScaler
 RANDOM_STATE = 20260913
 TARGET = "RRI"
 FINGERPRINT_SUFFIXES = ("sex", "Age")
+PROMOTION_GATES = {
+    "auroc": 0.70,
+    "balanced_accuracy": 0.65,
+    "sensitivity": 0.60,
+    "specificity": 0.60,
+    "expected_calibration_error_max": 0.15,
+}
 
 
 def participant_fingerprint(frame: pd.DataFrame) -> pd.Series:
@@ -170,6 +176,7 @@ def cluster_bootstrap_ci(
     threshold: float,
     iterations: int = 400,
 ) -> dict[str, list[float]]:
+    """Participant-cluster bootstrap with each sampled cluster copy treated separately."""
     rng = np.random.default_rng(RANDOM_STATE)
     unique_groups = np.unique(groups)
     samples: dict[str, list[float]] = {key: [] for key in [
@@ -177,13 +184,21 @@ def cluster_bootstrap_ci(
     ]}
     for _ in range(iterations):
         chosen = rng.choice(unique_groups, size=len(unique_groups), replace=True)
-        indices = np.concatenate([np.flatnonzero(groups == group) for group in chosen])
+        copied_indices: list[np.ndarray] = []
+        copied_group_labels: list[np.ndarray] = []
+        for bootstrap_copy, group in enumerate(chosen):
+            group_indices = np.flatnonzero(groups == group)
+            copied_indices.append(group_indices)
+            copied_group_labels.append(
+                np.full(len(group_indices), bootstrap_copy, dtype=int)
+            )
+        indices = np.concatenate(copied_indices)
+        bootstrap_groups = np.concatenate(copied_group_labels)
         yy = y[indices]
         if np.unique(yy).size < 2:
             continue
         pp = probability[indices]
-        gg = groups[indices]
-        weights = group_balanced_weights(gg)
+        weights = group_balanced_weights(bootstrap_groups)
         metrics = metric_bundle(yy, pp, threshold, weights)
         for key in samples:
             samples[key].append(metrics[key])
@@ -191,6 +206,26 @@ def cluster_bootstrap_ci(
         key: [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
         for key, values in samples.items()
         if values
+    }
+
+
+def promotion_status(metrics: dict[str, float]) -> dict:
+    checks = {
+        "auroc": metrics["auroc"] >= PROMOTION_GATES["auroc"],
+        "balanced_accuracy": metrics["balanced_accuracy"] >= PROMOTION_GATES["balanced_accuracy"],
+        "sensitivity": metrics["sensitivity"] >= PROMOTION_GATES["sensitivity"],
+        "specificity": metrics["specificity"] >= PROMOTION_GATES["specificity"],
+        "calibration": metrics["expected_calibration_error"] <= PROMOTION_GATES["expected_calibration_error_max"],
+    }
+    return {
+        "research_candidate": all(checks.values()),
+        "checks": checks,
+        "gates": PROMOTION_GATES,
+        "interpretation": (
+            "Eligible only for further external research validation. Clinical deployment remains blocked."
+            if all(checks.values())
+            else "Failed internal prognostic promotion gate; do not expose as an individual injury-risk probability."
+        ),
     }
 
 
@@ -271,6 +306,7 @@ def nested_evaluate(frame: pd.DataFrame) -> dict:
     group_metrics = metric_bundle(y, oof, global_threshold, weights)
     group_metrics["expected_calibration_error"] = calibration_error(y, oof, weights)
     ci = cluster_bootstrap_ci(y, oof, groups, global_threshold)
+    promotion = promotion_status(group_metrics)
 
     return {
         "validation_design": {
@@ -292,6 +328,7 @@ def nested_evaluate(frame: pd.DataFrame) -> dict:
         "aggregate_sample_weighted_by_week": sample_metrics,
         "aggregate_participant_balanced": group_metrics,
         "participant_cluster_bootstrap_95_ci": ci,
+        "promotion": promotion,
         "clinical_deployment_blocked": True,
         "blockers": [
             "No independent external validation cohort",
@@ -326,6 +363,7 @@ def main() -> None:
         "validation": report["validation_design"],
         "sample_metrics": report["aggregate_sample_weighted_by_week"],
         "participant_balanced_metrics": report["aggregate_participant_balanced"],
+        "promotion": report["promotion"],
         "selected_models": report["selected_model_by_outer_fold"],
         "clinical_deployment_blocked": report["clinical_deployment_blocked"],
     }, indent=2))
