@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0.0",
+  "protocolId": "replace-with-stable-protocol-id",
+  "protocolVersion": "1.0.0",
+  "protocolSource": "Describe the dated protocol, preregistration, IRB document, or other source fixed before model fitting.",
+  "specifiedBeforeModelFitting": true,
+  "intendedUse": "research-risk-estimation-only",
+  "outcome": {
+    "name": "Define one exact future outcome",
+    "caseDefinition": "Provide an operational case definition that a reviewer could reproduce without seeing model predictions.",
+    "adjudication": "Describe who or what determines outcome status, the surveillance source, and how ambiguous cases are resolved.",
+    "predictionHorizonDays": 30
+  },
+  "population": {
+    "description": "Exact population description; this string must match the strict training command.",
+    "inclusionCriteria": "Pre-specified inclusion criteria.",
+    "exclusionCriteria": "Pre-specified exclusion criteria."
+  },
+  "predictionIndex": {
+    "definition": "Exact prediction index definition; this string must match the strict training command.",
+    "predictorCutoffRule": "Only measurements available at or before the index time may be used."
+  },
+  "cameraEvidenceScope": {
+    "measurementDefinition": "Versioned 2D projection measurement from the supported webcam/pose protocol; not a 3D joint-angle measurement.",
+    "supportedOutcomeContexts": [
+      "List only research contexts actually supported by cited evidence and the planned cohort."
+    ],
+    "generalInjuryClaimAllowed": false,
+    "equivalentTo3DKinematics": false
+  }
+}
