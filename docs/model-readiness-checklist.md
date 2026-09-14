@@ -48,10 +48,25 @@ This checklist is a release blocker for any future work that attempts to convert
 - [ ] Subgroup audit is reported with explicit insufficient-sample states.
 - [ ] Missingness is reported by predictor.
 
+## Scientific added-value testing
+
+- [ ] Camera-derived predictors are compared against an otherwise identical reference model containing all eligible non-camera predictors.
+- [ ] Camera-derived longitudinal changes remain assigned to the camera feature set rather than being hidden in a generic longitudinal domain.
+- [ ] Reference and camera-expanded models use the same participants and the same deterministic participant-grouped outer-fold contract.
+- [ ] Camera-only performance is reported descriptively but is not treated as evidence that the camera adds value beyond established predictors.
+- [ ] Paired incremental `deltaAuROC`, `deltaAuPRC`, and Brier improvement are reported.
+- [ ] Incremental uncertainty is estimated with participant-cluster bootstrap intervals.
+- [ ] Mixed or inconclusive incremental results are not promoted as evidence of benefit.
+- [ ] Predictive incremental value is not described as causality or proof that changing the measured movement prevents injury.
+
 ## Generalization
 
 - [ ] Leave-one-site-out stress testing is reported when multi-site development data are available.
 - [ ] Site holdout is not mislabeled as external validation when sites come from the same development data-generating program.
+- [ ] A pre-specified chronological cutoff is used for temporal transport testing when longitudinal calendar data are available.
+- [ ] Temporal development rows have fully resolved outcome windows by the cutoff; straddling unresolved windows are excluded.
+- [ ] Model family, calibration, and threshold are frozen from the earlier period before later-period temporal evaluation.
+- [ ] Temporal holdout within the same data-generating program is not mislabeled as independent external validation.
 - [ ] Independent external cohort has been evaluated without refitting to its outcomes.
 - [ ] External model-family choice, calibration, features, and operating threshold remain frozen from development.
 - [ ] External cohort identity differs from the development cohort and the input file is not the development file.
