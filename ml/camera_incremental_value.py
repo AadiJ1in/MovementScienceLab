@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
+from feature_evidence_registry import prohibited_predictor_columns
 from prospective_cohort_audit import audit_csv
 from prospective_injury_benchmark import (
     FEATURE_DOMAINS,
@@ -48,31 +49,49 @@ def scientific_feature_sets(df: pd.DataFrame) -> dict[str, list[str]]:
     plus camera-derived predictors. Camera-derived longitudinal changes are
     treated as camera predictors even though they live in the generic
     longitudinal domain.
+
+    Measurement-quality-only variables (for example pose confidence) are
+    excluded from every injury-prediction feature set so neither the camera-only
+    nor expanded model can win by exploiting capture/setup artifacts.
     """
     all_features, _ = validate_dataset(df)
+    excluded_quality = set(prohibited_predictor_columns(all_features))
+    eligible_features = [
+        feature for feature in all_features if feature not in excluded_quality
+    ]
+
     camera_present = [
         feature
         for feature in FEATURE_DOMAINS["camera_biomechanics"]
-        if feature in all_features
+        if feature in eligible_features
     ]
     camera_longitudinal = [
-        feature for feature in CAMERA_LONGITUDINAL_FEATURES if feature in all_features
+        feature
+        for feature in CAMERA_LONGITUDINAL_FEATURES
+        if feature in eligible_features
     ]
     camera_features = list(dict.fromkeys(camera_present + camera_longitudinal))
     non_camera_features = [
-        feature for feature in all_features if feature not in set(camera_features)
+        feature
+        for feature in eligible_features
+        if feature not in set(camera_features)
     ]
 
     if not camera_features:
-        raise ValueError("At least one camera-derived predictor is required for incremental-value analysis.")
+        raise ValueError(
+            "At least one eligible camera-derived predictor is required for incremental-value analysis; "
+            "measurement-quality-only variables do not satisfy this requirement."
+        )
     if not non_camera_features:
-        raise ValueError("At least one non-camera predictor is required to define the reference model.")
+        raise ValueError(
+            "At least one non-camera predictor is required to define the reference model."
+        )
 
     history_training = [
         feature
         for domain in ("history", "training_exposure")
         for feature in FEATURE_DOMAINS[domain]
-        if feature in all_features
+        if feature in eligible_features
     ]
 
     return {
@@ -80,6 +99,7 @@ def scientific_feature_sets(df: pd.DataFrame) -> dict[str, list[str]]:
         "cameraOnly": camera_features,
         "nonCameraReference": non_camera_features,
         "expandedMultimodal": non_camera_features + camera_features,
+        "excludedMeasurementQualityPredictors": sorted(excluded_quality),
     }
 
 
@@ -162,7 +182,7 @@ def paired_cluster_bootstrap_incremental_value(
     unique_groups = np.unique(groups)
     rng = np.random.default_rng(seed)
     collected: dict[str, list[float]] = {
-        metric: [] for metric in PRIMARY_INCREMENTAL_METRICS
+        key: [] for key in PRIMARY_INCREMENTAL_METRICS
     }
 
     for _ in range(samples):
@@ -170,26 +190,25 @@ def paired_cluster_bootstrap_incremental_value(
         sampled_indices = np.concatenate(
             [np.flatnonzero(groups == group) for group in sampled_groups]
         )
-        sample_report = _safe_delta_metrics(
+        report = _safe_delta_metrics(
             y[sampled_indices],
             reference_probabilities[sampled_indices],
             expanded_probabilities[sampled_indices],
         )
-        if sample_report is None:
+        if report is None:
             continue
-        for metric, value in sample_report.items():
-            collected[metric].append(value)
+        for key, value in report.items():
+            collected[key].append(value)
 
     intervals: dict[str, dict[str, float | int] | None] = {}
-    for metric, values in collected.items():
+    for key, values in collected.items():
         if not values:
-            intervals[metric] = None
+            intervals[key] = None
             continue
-        intervals[metric] = {
+        intervals[key] = {
             "lower95": float(np.quantile(values, 0.025)),
             "upper95": float(np.quantile(values, 0.975)),
             "bootstrapSamplesUsed": int(len(values)),
-            "fractionExpandedBetter": float(np.mean(np.asarray(values) > 0)),
         }
 
     return {
@@ -197,52 +216,46 @@ def paired_cluster_bootstrap_incremental_value(
         "confidenceIntervals": intervals,
         "bootstrapUnit": "participant",
         "bootstrapSamplesRequested": int(samples),
-        "directionConvention": {
-            "deltaAuROC": "expanded minus reference; positive favors camera-expanded model",
-            "deltaAuPRC": "expanded minus reference; positive favors camera-expanded model",
-            "brierImprovement": "reference Brier minus expanded Brier; positive favors camera-expanded model",
-        },
     }
 
 
-def classify_internal_camera_added_value(
-    incremental: dict[str, Any],
-) -> dict[str, Any]:
+def classify_internal_camera_added_value(incremental: dict[str, Any]) -> dict[str, Any]:
     points = incremental["pointEstimates"]
     intervals = incremental["confidenceIntervals"]
-
-    lower_positive = 0
-    upper_negative = 0
+    above_zero = 0
+    below_zero = 0
     for metric in PRIMARY_INCREMENTAL_METRICS:
         interval = intervals.get(metric)
         if not isinstance(interval, dict):
             continue
-        if float(interval["lower95"]) > 0:
-            lower_positive += 1
-        if float(interval["upper95"]) < 0:
-            upper_negative += 1
+        lower = float(interval["lower95"])
+        upper = float(interval["upper95"])
+        if lower > 0:
+            above_zero += 1
+        if upper < 0:
+            below_zero += 1
 
-    all_points_nonnegative = all(float(points[metric]) >= 0 for metric in PRIMARY_INCREMENTAL_METRICS)
-    all_points_nonpositive = all(float(points[metric]) <= 0 for metric in PRIMARY_INCREMENTAL_METRICS)
+    all_nonnegative = all(float(points[metric]) >= 0 for metric in PRIMARY_INCREMENTAL_METRICS)
+    all_nonpositive = all(float(points[metric]) <= 0 for metric in PRIMARY_INCREMENTAL_METRICS)
 
-    if lower_positive >= 2 and all_points_nonnegative and upper_negative == 0:
+    if above_zero >= 2 and below_zero == 0 and all_nonnegative:
         status = "internal-evidence-supported"
-    elif upper_negative >= 2 and all_points_nonpositive and lower_positive == 0:
+    elif below_zero >= 2 and above_zero == 0 and all_nonpositive:
         status = "internal-evidence-against"
-    elif lower_positive > 0 and upper_negative > 0:
+    elif above_zero and below_zero:
         status = "mixed"
     else:
         status = "inconclusive"
 
     return {
         "status": status,
-        "metricsWith95IntervalAboveZero": int(lower_positive),
-        "metricsWith95IntervalBelowZero": int(upper_negative),
-        "allPrimaryPointEstimatesNonnegative": bool(all_points_nonnegative),
-        "allPrimaryPointEstimatesNonpositive": bool(all_points_nonpositive),
-        "interpretation": (
-            "This is an internal research classification of incremental predictive information, not evidence of "
-            "clinical utility, causality, treatment benefit, or permission to display an individual injury probability."
+        "metricsWith95IntervalAboveZero": above_zero,
+        "metricsWith95IntervalBelowZero": below_zero,
+        "allPrimaryPointEstimatesNonnegative": all_nonnegative,
+        "allPrimaryPointEstimatesNonpositive": all_nonpositive,
+        "note": (
+            "Internal research interpretation only. Incremental predictive value does not establish causality, "
+            "clinical utility, or permission to display individual injury probabilities."
         ),
     }
 
@@ -294,12 +307,14 @@ def evaluate_camera_incremental_value(
     conclusion = classify_internal_camera_added_value(incremental)
 
     return {
-        "schemaVersion": "1.0.0",
+        "schemaVersion": "1.1.0",
         "reportType": "paired-camera-incremental-value-internal-evaluation",
         "validationClaim": "internal-incremental-value-only",
         "externalValidation": False,
         "featureSets": feature_sets,
-        "outerSplitAudit": outer_split_fingerprint(df, feature_sets["expandedMultimodal"]),
+        "outerSplitAudit": outer_split_fingerprint(
+            df, feature_sets["expandedMultimodal"]
+        ),
         "modelEvaluations": evaluations,
         "pairedIncrementalValue": incremental,
         "cameraAddedValueConclusion": conclusion,
@@ -310,6 +325,7 @@ def evaluate_camera_incremental_value(
             "modelFamilyCalibrationAndThresholdSelectedInsideOuterTrainingOnly": True,
             "incrementalUncertaintyClusteredByParticipant": True,
             "cameraOnlyPerformanceNotTreatedAsIncrementalValue": True,
+            "measurementQualityShortcutsExcluded": True,
             "nriUsed": False,
             "reasonNriNotPrimary": (
                 "The analysis prioritizes paired changes in AUROC, AUPRC, and a proper scoring rule (Brier score) "
