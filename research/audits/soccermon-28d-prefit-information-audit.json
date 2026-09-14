@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0.0",
+  "auditType": "pre-fit clustered information audit",
+  "sourceDataset": "SoccerMon",
+  "sourceCommit": "38da2174019f6f6627e61a01a9fb6e7ff3f868b9",
+  "sourceWorkflowRunId": 34796802563,
+  "sourceArtifactId": 10329783083,
+  "cohortCsvSha256": "cdc33d72da016f3d436ecfcfd89ff440cc0da527bfa6a823662006fa06fc5be5",
+  "modelWasFitBeforeThisDecision": false,
+  "predictionHorizonDays": 28,
+  "strideDays": 28,
+  "outcome": "any recorded injury event",
+  "timingAudit": {
+    "passed": true,
+    "overlappingAdjacentWindowPairs": 0,
+    "reusedPositiveEventRows": 0,
+    "featureTimingVerifiedFromTimestamps": true,
+    "outcomeTimingDirectlyVerified": true
+  },
+  "information": {
+    "nRows": 1250,
+    "independenceUnit": "participant",
+    "rowsAreIndependentSubjects": false,
+    "nIndependentParticipants": 50,
+    "nParticipantsWithAtLeastOnePositiveWindow": 13,
+    "nParticipantsWithoutPositiveWindow": 37,
+    "nPositiveWindows": 41,
+    "nNegativeWindows": 1209,
+    "windowPrevalence": 0.0328,
+    "participantsBySite": {
+      "TeamA": 27,
+      "TeamB": 23
+    },
+    "positiveWindowsBySite": {
+      "TeamA": 39,
+      "TeamB": 2
+    },
+    "fractionMissingByPredictor": {
+      "previous_injury_count": 0.0,
+      "days_since_last_injury": 0.7464,
+      "session_rpe_load_7d": 0.0,
+      "session_rpe_load_28d": 0.0,
+      "soreness_score": 0.4136,
+      "sleep_quality_score": 0.4136,
+      "readiness_score": 0.4136
+    }
+  },
+  "decision": {
+    "modelFittingAuthorized": false,
+    "status": "information-audit-only",
+    "reason": "The real cohort is adequate to validate prospective cohort construction and leakage controls, but a defensible clustered/repeated-measures prediction-model sample-size justification has not established adequate independent outcome information for flexible model development, calibration, and model-family selection. The 1,250 rows must not be treated as 1,250 independent participants.",
+    "requiredBeforeModelFitting": [
+      "Freeze the exact candidate predictor and model-family plan before performance evaluation.",
+      "Provide a sample-size/information justification appropriate to the repeated participant-level design rather than a blanket events-per-variable rule.",
+      "Address the severe site outcome imbalance and pre-specify how site transport will be evaluated.",
+      "Pre-specify handling of the 41.36% missing wellness measurements without looking at predictive performance.",
+      "Keep camera incremental value as a separate paired same-cohort question; SoccerMon cannot validate the webcam features because it contains no Movement Science Lab camera measurements."
+    ]
+  },
+  "methodologicalContext": {
+    "note": "Modern prediction-model sample-size methods require context-specific assumptions about predictor parameters, outcome prevalence, anticipated predictive signal, and acceptable optimism/calibration precision. This audit deliberately does not replace that calculation with a universal 10-events-per-predictor rule.",
+    "references": [
+      "Riley RD et al. Statistics in Medicine 2019; PMID 30357870; DOI 10.1002/sim.7992.",
+      "Riley RD et al. BMJ 2020;368:m441."
+    ]
+  }
+}
