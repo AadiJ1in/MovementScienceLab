@@ -25,6 +25,7 @@ class CameraIncrementalValueTests(unittest.TestCase):
                     "pain_score": 4.0 if positive else 1.0,
                     "training_minutes_7d": 420.0 if positive else 260.0,
                     "left_sls_stable_knee_deg": 14.0 if positive else 6.0,
+                    "mean_pose_confidence": 0.95 if positive else 0.72,
                     "sls_knee_change_30d": 3.0 if positive else 0.5,
                     "training_minutes_change_28d": 80.0 if positive else 10.0,
                 }
@@ -42,6 +43,20 @@ class CameraIncrementalValueTests(unittest.TestCase):
             set(feature_sets["expandedMultimodal"]),
             set(feature_sets["nonCameraReference"]) | set(feature_sets["cameraOnly"]),
         )
+
+    def test_pose_confidence_is_excluded_from_every_predictive_feature_set(self) -> None:
+        feature_sets = scientific_feature_sets(self.make_frame())
+        self.assertEqual(
+            feature_sets["excludedMeasurementQualityPredictors"],
+            ["mean_pose_confidence"],
+        )
+        for name in (
+            "historyTrainingBaseline",
+            "cameraOnly",
+            "nonCameraReference",
+            "expandedMultimodal",
+        ):
+            self.assertNotIn("mean_pose_confidence", feature_sets[name])
 
     def test_paired_bootstrap_reports_positive_increment_when_expanded_predictions_are_better(self) -> None:
         y = np.asarray([0, 1] * 40, dtype=int)
