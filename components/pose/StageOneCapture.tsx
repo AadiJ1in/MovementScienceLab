@@ -45,15 +45,27 @@ const POSE_UI_INTERVAL_MS = 100;
 
 type VideoFrameMetadataLike = {
   mediaTime?: number;
-  presentedFrames?: number;
 };
 
-type VideoWithFrameCallback = HTMLVideoElement & {
-  requestVideoFrameCallback?: (
-    callback: (now: number, metadata: VideoFrameMetadataLike) => void,
-  ) => number;
-  cancelVideoFrameCallback?: (handle: number) => void;
-};
+type VideoFrameRequest = (
+  callback: (now: number, metadata: VideoFrameMetadataLike) => void,
+) => number;
+
+type VideoFrameCancel = (handle: number) => void;
+
+function sourceFrameRequest(video: HTMLVideoElement): VideoFrameRequest | null {
+  const candidate = (
+    video as unknown as { requestVideoFrameCallback?: VideoFrameRequest }
+  ).requestVideoFrameCallback;
+  return typeof candidate === "function" ? candidate.bind(video) : null;
+}
+
+function cancelSourceFrame(video: HTMLVideoElement, handle: number) {
+  const candidate = (
+    video as unknown as { cancelVideoFrameCallback?: VideoFrameCancel }
+  ).cancelVideoFrameCallback;
+  if (typeof candidate === "function") candidate.call(video, handle);
+}
 
 export type StageOneCaptureTelemetry = {
   width?: number;
@@ -125,7 +137,9 @@ export function StageOneCapture({
   }, [onStreamFrame, onReadyChange, onTelemetryChange]);
 
   useEffect(() => {
-    setPreference(parseCameraPreference(window.localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY)));
+    setPreference(
+      parseCameraPreference(window.localStorage.getItem(CAMERA_PROFILE_STORAGE_KEY)),
+    );
   }, []);
 
   useEffect(() => {
@@ -166,6 +180,11 @@ export function StageOneCapture({
     }
 
     let cancelled = false;
+    let captureVideo: HTMLVideoElement | null = null;
+    let captureCanvas: HTMLCanvasElement | null = null;
+    let activeTrack: MediaStreamTrack | null = null;
+    let cancelVideoFrame: VideoFrameCancel | null = null;
+
     const activePreference: CameraPreference = {
       facingMode,
       targetResolution,
@@ -220,7 +239,6 @@ export function StageOneCapture({
           landmarker.close();
           return;
         }
-
         landmarkerRef.current = landmarker;
         setDelegate(activeDelegate);
 
@@ -257,21 +275,31 @@ export function StageOneCapture({
 
         streamRef.current = stream;
         const video = videoRef.current;
-        if (!video) throw new Error("Camera preview is unavailable.");
+        const canvas = canvasRef.current;
+        if (!video || !canvas) throw new Error("Camera preview is unavailable.");
+        captureVideo = video;
+        captureCanvas = canvas;
         video.srcObject = stream;
         await video.play();
 
-        const track = stream.getVideoTracks()[0];
+        const track = stream.getVideoTracks()[0] ?? null;
+        activeTrack = track;
         track?.addEventListener("ended", handleTrackEnded);
         await refreshDevices();
-        const settings = track?.getSettings?.() ?? {};
+        const settings = track?.getSettings() ?? {};
         const selectedDevice = (await navigator.mediaDevices.enumerateDevices()).find(
           (item) => item.kind === "videoinput" && item.deviceId === settings.deviceId,
         );
-        const videoWithCallback = video as VideoWithFrameCallback;
-        const frameClock: PoseFrameClock = videoWithCallback.requestVideoFrameCallback
+
+        const requestSourceFrame = sourceFrameRequest(video);
+        const frameClock: PoseFrameClock = requestSourceFrame
           ? "request-video-frame-callback"
           : "animation-frame-fallback";
+        const cancelCandidate = (
+          video as unknown as { cancelVideoFrameCallback?: VideoFrameCancel }
+        ).cancelVideoFrameCallback;
+        cancelVideoFrame =
+          typeof cancelCandidate === "function" ? cancelCandidate.bind(video) : null;
 
         const baseTelemetry: StageOneCaptureTelemetry = {
           width: settings.width,
@@ -294,34 +322,34 @@ export function StageOneCapture({
         setStatus("ready");
         navigator.mediaDevices.addEventListener?.("devicechange", refreshDevices);
 
-        const context = canvasRef.current?.getContext("2d") ?? null;
+        const context = canvas.getContext("2d");
         const drawingUtils = context ? new DrawingUtils(context) : null;
 
         function scheduleNextFrame() {
           if (cancelled) return;
-          const activeVideo = videoRef.current as VideoWithFrameCallback | null;
+          const activeVideo = captureVideo;
           if (!activeVideo) return;
 
-          if (activeVideo.requestVideoFrameCallback) {
-            videoFrameRef.current = activeVideo.requestVideoFrameCallback((now, metadata) => {
+          if (requestSourceFrame) {
+            videoFrameRef.current = requestSourceFrame((now, metadata) => {
               processFrame(now, metadata.mediaTime);
             });
-          } else {
-            animationRef.current = requestAnimationFrame((now) => {
-              processFrame(now, activeVideo.currentTime);
-            });
+            return;
           }
+
+          animationRef.current = requestAnimationFrame((now) => {
+            processFrame(now, activeVideo.currentTime);
+          });
         }
 
         function processFrame(callbackTimestampMs: number, mediaTimeSeconds?: number) {
           if (cancelled) return;
-
-          const activeVideo = videoRef.current;
-          const canvas = canvasRef.current;
+          const activeVideo = captureVideo;
+          const activeCanvas = captureCanvas;
           const activeLandmarker = landmarkerRef.current;
           if (
             !activeVideo ||
-            !canvas ||
+            !activeCanvas ||
             !activeLandmarker ||
             activeVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
           ) {
@@ -330,24 +358,27 @@ export function StageOneCapture({
           }
 
           const mediaTime = mediaTimeSeconds ?? activeVideo.currentTime;
-          if (frameClock === "animation-frame-fallback" && mediaTime === lastMediaTimeRef.current) {
+          if (
+            frameClock === "animation-frame-fallback" &&
+            mediaTime === lastMediaTimeRef.current
+          ) {
             scheduleNextFrame();
             return;
           }
           lastMediaTimeRef.current = mediaTime;
 
           if (
-            canvas.width !== activeVideo.videoWidth ||
-            canvas.height !== activeVideo.videoHeight
+            activeCanvas.width !== activeVideo.videoWidth ||
+            activeCanvas.height !== activeVideo.videoHeight
           ) {
-            canvas.width = activeVideo.videoWidth;
-            canvas.height = activeVideo.videoHeight;
+            activeCanvas.width = activeVideo.videoWidth;
+            activeCanvas.height = activeVideo.videoHeight;
           }
 
           const inferenceStarted = performance.now();
           const result = activeLandmarker.detectForVideo(activeVideo, callbackTimestampMs);
           const inferenceLatencyMs = performance.now() - inferenceStarted;
-          drawResult(result, drawingUtils, canvas);
+          drawResult(result, drawingUtils, activeCanvas);
 
           const landmarks = result.landmarks[0];
           const nextFrame =
@@ -375,26 +406,27 @@ export function StageOneCapture({
           );
 
           sequenceRef.current += 1;
-          const streamFrame = buildPoseStreamFrame(
-            nextFrame,
-            {
-              sequence: sequenceRef.current,
-              callbackTimestampMs,
-              capturedAtEpochMs: Math.round(performance.timeOrigin + callbackTimestampMs),
-              mediaTimeMs: mediaTime * 1000,
-              frameClock,
-              width: activeVideo.videoWidth || settings.width,
-              height: activeVideo.videoHeight || settings.height,
-              facingMode: settings.facingMode,
-              delegate: activeDelegate,
-              cameraFps: settings.frameRate,
-              inferenceFps: snapshot.processingFps,
-              averageInferenceLatencyMs: snapshot.averageInferenceLatencyMs,
-              inferenceLatencyMs,
-            },
-            worldLandmarks,
+          onStreamFrameRef.current(
+            buildPoseStreamFrame(
+              nextFrame,
+              {
+                sequence: sequenceRef.current,
+                callbackTimestampMs,
+                capturedAtEpochMs: Math.round(performance.timeOrigin + callbackTimestampMs),
+                mediaTimeMs: mediaTime * 1000,
+                frameClock,
+                width: activeVideo.videoWidth || settings.width,
+                height: activeVideo.videoHeight || settings.height,
+                facingMode: settings.facingMode,
+                delegate: activeDelegate,
+                cameraFps: settings.frameRate,
+                inferenceFps: snapshot.processingFps,
+                averageInferenceLatencyMs: snapshot.averageInferenceLatencyMs,
+                inferenceLatencyMs,
+              },
+              worldLandmarks,
+            ),
           );
-          onStreamFrameRef.current(streamFrame);
 
           if (callbackTimestampMs - lastPoseUiUpdateRef.current >= POSE_UI_INTERVAL_MS) {
             lastPoseUiUpdateRef.current = callbackTimestampMs;
@@ -437,25 +469,22 @@ export function StageOneCapture({
     return () => {
       cancelled = true;
       navigator.mediaDevices?.removeEventListener?.("devicechange", refreshDevices);
+      activeTrack?.removeEventListener("ended", handleTrackEnded);
       if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
-      const activeVideo = videoRef.current as VideoWithFrameCallback | null;
-      if (
-        videoFrameRef.current !== null &&
-        activeVideo?.cancelVideoFrameCallback
-      ) {
-        activeVideo.cancelVideoFrameCallback(videoFrameRef.current);
+      if (videoFrameRef.current !== null && cancelVideoFrame) {
+        cancelVideoFrame(videoFrameRef.current);
       }
       videoFrameRef.current = null;
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (captureVideo) captureVideo.srcObject = null;
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
       performanceMonitor.reset();
-      const canvasContext = canvasRef.current?.getContext("2d");
-      if (canvasContext && canvasRef.current) {
-        canvasContext.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      const canvasContext = captureCanvas?.getContext("2d");
+      if (canvasContext && captureCanvas) {
+        canvasContext.clearRect(0, 0, captureCanvas.width, captureCanvas.height);
       }
     };
   }, [captureEnabled, deviceId, facingMode, targetResolution]);
@@ -471,7 +500,7 @@ export function StageOneCapture({
     try {
       await element.requestFullscreen();
     } catch {
-      // Fullscreen can be rejected by browser policy; capture remains usable.
+      // Browser policy can reject fullscreen; capture remains usable.
     }
   }
 
@@ -511,14 +540,18 @@ export function StageOneCapture({
             </div>
             {telemetry && (
               <div className="border border-white/15 bg-black/65 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/65 backdrop-blur-sm">
-                {telemetry.frameClock === "request-video-frame-callback" ? "Source-frame clock" : "Display-clock fallback"}
+                {telemetry.frameClock === "request-video-frame-callback"
+                  ? "Source-frame clock"
+                  : "Display-clock fallback"}
               </div>
             )}
           </div>
 
           {telemetry && (
             <div className="absolute bottom-4 left-4 border border-white/15 bg-black/65 px-3 py-2 text-[10px] text-white/70 backdrop-blur-sm">
-              <span className="font-semibold text-white">{telemetry.inferenceFps?.toFixed(1) ?? "—"} pose fps</span>
+              <span className="font-semibold text-white">
+                {telemetry.inferenceFps?.toFixed(1) ?? "—"} pose fps
+              </span>
               <span className="mx-2 text-white/25">|</span>
               {telemetry.averageInferenceLatencyMs?.toFixed(1) ?? "—"} ms mean latency
               <span className="mx-2 text-white/25">|</span>
@@ -526,15 +559,17 @@ export function StageOneCapture({
             </div>
           )}
 
-          {captureEnabled && typeof document !== "undefined" && document.fullscreenEnabled && (
-            <button
-              type="button"
-              onClick={() => void enterFullScreen()}
-              className="absolute bottom-4 right-4 border border-white/15 bg-black/65 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white backdrop-blur-sm"
-            >
-              Full screen
-            </button>
-          )}
+          {captureEnabled &&
+            typeof document !== "undefined" &&
+            document.fullscreenEnabled && (
+              <button
+                type="button"
+                onClick={() => void enterFullScreen()}
+                className="absolute bottom-4 right-4 border border-white/15 bg-black/65 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-white backdrop-blur-sm"
+              >
+                Full screen
+              </button>
+            )}
 
           {overlay && (
             <div className="pointer-events-none absolute right-4 top-4">{overlay}</div>
@@ -543,7 +578,9 @@ export function StageOneCapture({
           {!captureEnabled && (
             <div className="absolute inset-0 flex items-center justify-center p-6">
               <div className="max-w-md border border-white/15 bg-black/80 p-6 text-center text-white backdrop-blur-md">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Local capture</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">
+                  Local capture
+                </p>
                 <p className="mt-2 text-lg font-semibold">Camera and pose inference are off</p>
                 <p className="mt-2 text-sm leading-6 text-white/60">
                   Enable capture after reviewing the local-processing notice. Video frames are not uploaded by this Stage 1 workspace.
@@ -556,7 +593,9 @@ export function StageOneCapture({
 
       <aside className="space-y-4 border border-zinc-200 bg-white p-5">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Capture setup</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            Capture setup
+          </p>
           <h3 className="mt-1 text-lg font-semibold text-zinc-950">{config.label}</h3>
           <p className="mt-2 text-sm leading-6 text-zinc-600">{config.instruction}</p>
         </div>
@@ -612,7 +651,9 @@ export function StageOneCapture({
             </label>
 
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Lens direction</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Lens direction
+              </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <PreferenceButton
                   active={facingMode === "user" && !deviceId}
@@ -642,13 +683,17 @@ export function StageOneCapture({
             </div>
 
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Requested capture</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Requested capture
+              </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {(["720p", "1080p"] as CameraTargetResolution[]).map((resolution) => (
                   <PreferenceButton
                     key={resolution}
                     active={targetResolution === resolution}
-                    onClick={() => updatePreference({ ...preference, targetResolution: resolution })}
+                    onClick={() =>
+                      updatePreference({ ...preference, targetResolution: resolution })
+                    }
                   >
                     {resolution}
                   </PreferenceButton>
@@ -670,7 +715,11 @@ export function StageOneCapture({
           <dl className="grid grid-cols-2 gap-px bg-zinc-200 text-xs">
             <TelemetryCell
               label="Resolution"
-              value={telemetry.width && telemetry.height ? `${telemetry.width}×${telemetry.height}` : "—"}
+              value={
+                telemetry.width && telemetry.height
+                  ? `${telemetry.width}×${telemetry.height}`
+                  : "—"
+              }
             />
             <TelemetryCell label="Camera FPS" value={telemetry.cameraFps?.toFixed(1) ?? "—"} />
             <TelemetryCell label="Pose FPS" value={telemetry.inferenceFps?.toFixed(1) ?? "—"} />
@@ -684,7 +733,9 @@ export function StageOneCapture({
             />
             <TelemetryCell
               label="Frame clock"
-              value={telemetry.frameClock === "request-video-frame-callback" ? "source" : "fallback"}
+              value={
+                telemetry.frameClock === "request-video-frame-callback" ? "source" : "fallback"
+              }
             />
             <TelemetryCell label="Runtime" value={telemetry.delegate ?? delegate ?? "—"} />
           </dl>
@@ -872,7 +923,9 @@ function PreferenceButton({
 function TelemetryCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-zinc-50 p-3">
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">{label}</dt>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-400">
+        {label}
+      </dt>
       <dd className="mt-1 font-semibold text-zinc-900 tabular-nums">{value}</dd>
     </div>
   );
