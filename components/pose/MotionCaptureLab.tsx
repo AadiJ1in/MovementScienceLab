@@ -2,15 +2,15 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
-  AssessmentCapture,
-  type AssessmentCaptureTelemetry,
-} from "@/components/assessment/AssessmentCapture";
-import {
-  buildPoseStreamFrame,
-  type PoseLandmarkName,
-  type PoseStreamFrame,
+  StageOneCapture,
+  type StageOneCaptureTelemetry,
+} from "@/components/pose/StageOneCapture";
+import type {
+  PoseLandmarkName,
+  PoseStreamFrame,
+  PoseStreamLandmark,
 } from "@/lib/pose/stream";
-import type { MovementType, PoseFrame } from "@/lib/pose/types";
+import type { MovementType } from "@/lib/pose/types";
 
 const CAPTURE_MODES: Array<{
   value: MovementType;
@@ -42,57 +42,39 @@ const ANCHOR_LANDMARKS: PoseLandmarkName[] = [
 
 export function MotionCaptureLab() {
   const [movement, setMovement] = useState<MovementType>("general-front");
-  const [telemetry, setTelemetry] = useState<AssessmentCaptureTelemetry | null>(null);
+  const [telemetry, setTelemetry] = useState<StageOneCaptureTelemetry | null>(null);
   const [captureReady, setCaptureReady] = useState(false);
   const [latestFrame, setLatestFrame] = useState<PoseStreamFrame | null>(null);
   const [framesReceived, setFramesReceived] = useState(0);
   const [posesDetected, setPosesDetected] = useState(0);
-  const sequenceRef = useRef(0);
-  const telemetryRef = useRef<AssessmentCaptureTelemetry | null>(null);
+  const [worldFramesReceived, setWorldFramesReceived] = useState(0);
+  const sessionKeyRef = useRef(0);
 
-  function handleTelemetry(next: AssessmentCaptureTelemetry | null) {
-    telemetryRef.current = next;
-    setTelemetry(next);
-  }
-
-  function handleFrame(frame: PoseFrame | null) {
-    const activeTelemetry = telemetryRef.current;
-    sequenceRef.current += 1;
-
-    const streamFrame = buildPoseStreamFrame(frame, {
-      sequence: sequenceRef.current,
-      callbackTimestampMs: performance.now(),
-      capturedAtEpochMs: Date.now(),
-      width: activeTelemetry?.width,
-      height: activeTelemetry?.height,
-      facingMode: activeTelemetry?.facingMode,
-      delegate: activeTelemetry?.delegate,
-      cameraFps: activeTelemetry?.cameraFps,
-      inferenceFps: activeTelemetry?.processingFps,
-      averageInferenceLatencyMs: activeTelemetry?.averageInferenceLatencyMs,
-    });
-
-    setLatestFrame(streamFrame);
+  function handleStreamFrame(frame: PoseStreamFrame) {
+    setLatestFrame(frame);
     setFramesReceived((current) => current + 1);
-    if (streamFrame.pose.detected) {
-      setPosesDetected((current) => current + 1);
+    if (frame.pose.detected) setPosesDetected((current) => current + 1);
+    if (frame.pose.worldLandmarks.length === 33) {
+      setWorldFramesReceived((current) => current + 1);
     }
   }
 
   function resetStreamCounters() {
-    sequenceRef.current = 0;
+    sessionKeyRef.current += 1;
     setLatestFrame(null);
     setFramesReceived(0);
     setPosesDetected(0);
+    setWorldFramesReceived(0);
   }
 
   const detectionRate = framesReceived > 0 ? posesDetected / framesReceived : null;
+  const worldRate = framesReceived > 0 ? worldFramesReceived / framesReceived : null;
   const mode = CAPTURE_MODES.find((item) => item.value === movement) ?? CAPTURE_MODES[0];
   const anchors = useMemo(() => {
     if (!latestFrame) return [];
     const byName = new Map(latestFrame.pose.landmarks.map((point) => [point.name, point]));
     return ANCHOR_LANDMARKS.map((name) => byName.get(name)).filter(
-      (point): point is NonNullable<typeof point> => Boolean(point),
+      (point): point is PoseStreamLandmark => point !== undefined,
     );
   }, [latestFrame]);
 
@@ -122,6 +104,7 @@ export function MotionCaptureLab() {
         <div className="grid gap-px bg-zinc-200 lg:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="bg-[#f6f7f5] p-5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Capture plane</p>
+            <p className="mt-2 text-xs leading-5 text-zinc-600">{mode.description}</p>
             <div className="mt-3 space-y-2">
               {CAPTURE_MODES.map((item) => {
                 const selected = movement === item.value;
@@ -157,11 +140,12 @@ export function MotionCaptureLab() {
           </aside>
 
           <div className="bg-white p-3 sm:p-5">
-            <AssessmentCapture
+            <StageOneCapture
+              key={`${movement}-${sessionKeyRef.current}`}
               movement={movement}
-              onFrame={handleFrame}
+              onStreamFrame={handleStreamFrame}
               onReadyChange={setCaptureReady}
-              onTelemetryChange={handleTelemetry}
+              onTelemetryChange={setTelemetry}
               overlay={
                 <div className="border border-white/20 bg-black/65 px-3 py-2 text-right text-[10px] uppercase tracking-[0.14em] text-white/70 backdrop-blur-sm">
                   <div className="font-semibold text-white">Raw landmark stream</div>
@@ -186,13 +170,13 @@ export function MotionCaptureLab() {
         />
         <MetricCard
           label="Pose throughput"
-          value={telemetry?.processingFps ? `${telemetry.processingFps.toFixed(1)} fps` : "—"}
+          value={telemetry?.inferenceFps ? `${telemetry.inferenceFps.toFixed(1)} fps` : "—"}
           detail={telemetry?.averageInferenceLatencyMs !== undefined ? `${telemetry.averageInferenceLatencyMs.toFixed(1)} ms mean inference latency` : "Waiting for capture telemetry."}
         />
         <MetricCard
-          label="Capture profile"
-          value={telemetry?.width && telemetry?.height ? `${telemetry.width}×${telemetry.height}` : "—"}
-          detail={`${telemetry?.delegate ?? "—"} runtime${telemetry?.cameraFps ? ` · ${telemetry.cameraFps.toFixed(1)} camera fps` : ""}`}
+          label="World landmarks"
+          value={worldRate === null ? "—" : `${Math.round(worldRate * 100)}%`}
+          detail="MediaPipe model-relative 3D output availability; not calibrated laboratory coordinates."
         />
       </section>
 
@@ -253,25 +237,27 @@ export function MotionCaptureLab() {
         </div>
 
         <aside className="border border-zinc-300 bg-[#111413] p-5 text-white">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Frame contract · v1.0</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Frame contract · v1.1</p>
           <h3 className="mt-2 text-lg font-semibold">Clean stream for later analysis</h3>
           <p className="mt-3 text-sm leading-6 text-white/60">
-            Every analyzed frame receives a sequence number, monotonic timestamp, wall-clock timestamp, image dimensions, pose status, named landmarks, trust state, and runtime telemetry.
+            Every analyzed source frame receives a sequence number, monotonic timestamp, wall-clock timestamp, source-media time, image dimensions, pose status, named landmarks, trust state, world landmarks when available, and runtime telemetry.
           </p>
 
           <dl className="mt-5 divide-y divide-white/10 border-y border-white/10 text-xs">
             <StreamRow label="Sequence" value={latestFrame ? `#${latestFrame.sequence}` : "—"} />
             <StreamRow label="Captured at" value={latestFrame ? compactIso(latestFrame.capturedAtIso) : "—"} />
-            <StreamRow label="Timestamp" value={latestFrame ? `${latestFrame.timestampMs.toFixed(1)} ms` : "—"} />
-            <StreamRow label="Clock source" value={latestFrame?.timestampSource ?? "—"} />
+            <StreamRow label="Pose timestamp" value={latestFrame ? `${latestFrame.timestampMs.toFixed(1)} ms` : "—"} />
+            <StreamRow label="Media time" value={latestFrame?.mediaTimeMs === null || latestFrame?.mediaTimeMs === undefined ? "—" : `${latestFrame.mediaTimeMs.toFixed(1)} ms`} />
+            <StreamRow label="Frame clock" value={latestFrame?.frameClock ?? "—"} />
             <StreamRow label="Pose detected" value={latestFrame ? (latestFrame.pose.detected ? "yes" : "no") : "—"} />
             <StreamRow label="Mean visibility" value={latestFrame?.pose.meanVisibility === null || latestFrame?.pose.meanVisibility === undefined ? "—" : latestFrame.pose.meanVisibility.toFixed(3)} />
+            <StreamRow label="World points" value={latestFrame ? String(latestFrame.pose.worldLandmarks.length) : "—"} />
           </dl>
 
           <div className="mt-5 border border-white/10 bg-white/[0.04] p-4 text-xs leading-5 text-white/55">
             <p className="font-semibold text-white/85">Scientific note</p>
             <p className="mt-1">
-              MediaPipe x/y coordinates are normalized image coordinates. The reported z value is model-relative depth, not a calibrated metric 3D laboratory coordinate. Stage 2 should not treat z as centimeters or millimeters without separate validation.
+              MediaPipe x/y coordinates are normalized image coordinates. World landmarks are model-relative 3D estimates, not calibrated motion-capture coordinates. Stage 2 must not treat them as laboratory-grade centimeters or millimeters without separate validation.
             </p>
           </div>
         </aside>
