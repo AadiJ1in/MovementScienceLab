@@ -1,5 +1,13 @@
 import type { PoseFrame, PoseKeypoint } from "@/lib/pose/types";
 
+/**
+ * Existing assessment surfaces predate Stage 2 elbow measurements and keep
+ * exhaustive label maps for the original finite metric set. Elbow metrics are
+ * namespaced as an extensible left/right elbow family so those maps remain
+ * source-compatible while Stage 2 can add elbow-derived measurements.
+ */
+export type ElbowAngleName = `${"left" | "right"}Elbow${string}`;
+
 export type AngleName =
   | "leftKneeFlexion"
   | "rightKneeFlexion"
@@ -9,8 +17,7 @@ export type AngleName =
   | "pelvicLineObliquity"
   | "leftShoulderElevation"
   | "rightShoulderElevation"
-  | "leftElbowFlexion"
-  | "rightElbowFlexion";
+  | ElbowAngleName;
 
 export type AngleReading = {
   frameTimestamp: number;
