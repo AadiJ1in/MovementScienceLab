@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOVEMENT_QUALITY_FEATURE_NAMES } from "@/lib/ai/movement-quality-model";
+import { MOVEMENT_QUALITY_FEATURE_NAMES } from "../ai/movement-quality-model";
 import { getDataPiece } from "./data-matrix";
 
 describe("model feature contracts stay aligned with the canonical data matrix", () => {
