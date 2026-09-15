@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,10 @@ def load_data_source_matrix(path: Path = DEFAULT_MATRIX_PATH) -> dict[str, Any]:
         matrix = json.load(handle)
     validate_data_source_matrix(matrix)
     return matrix
+
+
+def data_source_matrix_sha256(path: Path = DEFAULT_MATRIX_PATH) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def validate_data_source_matrix(matrix: dict[str, Any]) -> None:
@@ -78,6 +83,14 @@ def validate_data_source_matrix(matrix: dict[str, Any]) -> None:
     if policy.get("bundledRawVideoFiles"):
         raise ValueError("bundledRawVideoFiles must remain empty.")
 
+    feature_domains = prospective_feature_domains(matrix)
+    if not feature_domains:
+        raise ValueError("Canonical matrix must define at least one prospective research feature domain.")
+    if len(feature_domains) != len(set(feature_domains)):
+        raise ValueError("Prospective feature-domain names must be unique.")
+    if not movement_quality_feature_names(matrix):
+        raise ValueError("Canonical matrix must define the movement-quality feature vector.")
+
 
 def source_by_id(source_id: str, matrix: dict[str, Any] | None = None) -> dict[str, Any] | None:
     matrix = matrix or load_data_source_matrix()
@@ -123,6 +136,47 @@ def data_pieces_containing_field(
     ]
 
 
+def prospective_feature_domains(
+    matrix: dict[str, Any] | None = None,
+) -> dict[str, tuple[str, ...]]:
+    """Return the prospective benchmark feature contract from the canonical matrix.
+
+    Domain names are derived from canonical data-piece IDs so Python modeling code
+    cannot silently drift away from `data/data-source-matrix.json`.
+    """
+
+    matrix = matrix or load_data_source_matrix()
+    domains: dict[str, tuple[str, ...]] = {}
+    for piece in matrix["dataPieces"]:
+        piece_id = str(piece["id"])
+        if not piece_id.startswith("prospective-") or not piece_id.endswith("-domain"):
+            continue
+        domain = piece_id.removeprefix("prospective-").removesuffix("-domain").replace("-", "_")
+        fields = tuple(str(field) for field in piece.get("fields", []))
+        if not fields:
+            raise ValueError(f"Prospective feature domain {piece_id} has no fields.")
+        if domain in domains:
+            raise ValueError(f"Duplicate prospective feature domain derived from matrix: {domain}.")
+        domains[domain] = fields
+    return domains
+
+
+def movement_quality_feature_names(
+    matrix: dict[str, Any] | None = None,
+) -> tuple[str, ...]:
+    matrix = matrix or load_data_source_matrix()
+    piece = next(
+        (row for row in matrix["dataPieces"] if row["id"] == "movement-quality-feature-vector"),
+        None,
+    )
+    if piece is None:
+        raise ValueError("Canonical matrix is missing movement-quality-feature-vector.")
+    fields = tuple(str(field) for field in piece.get("fields", []))
+    if not fields:
+        raise ValueError("movement-quality-feature-vector must define at least one field.")
+    return fields
+
+
 def supabase_table(
     name: str,
     matrix: dict[str, Any] | None = None,
@@ -146,6 +200,9 @@ def main() -> None:
     parser.add_argument("--stage")
     parser.add_argument("--field")
     parser.add_argument("--table")
+    parser.add_argument("--feature-domains", action="store_true")
+    parser.add_argument("--movement-quality-features", action="store_true")
+    parser.add_argument("--hash", action="store_true")
     args = parser.parse_args()
 
     matrix = load_data_source_matrix(args.matrix)
@@ -160,9 +217,19 @@ def main() -> None:
         output = data_pieces_containing_field(args.field, matrix)
     elif args.table:
         output = supabase_table(args.table, matrix)
+    elif args.feature_domains:
+        output = prospective_feature_domains(matrix)
+    elif args.movement_quality_features:
+        output = movement_quality_feature_names(matrix)
+    elif args.hash:
+        output = {
+            "schemaVersion": matrix["schemaVersion"],
+            "sha256": data_source_matrix_sha256(args.matrix),
+        }
     else:
         output = {
             "schemaVersion": matrix["schemaVersion"],
+            "sha256": data_source_matrix_sha256(args.matrix),
             "sources": len(matrix["sources"]),
             "pendingSources": len(matrix["pendingSources"]),
             "videoSources": len(matrix["videoSources"]),
@@ -170,6 +237,8 @@ def main() -> None:
             "evidenceSources": len(matrix["evidenceSources"]),
             "supabaseTables": len(matrix["supabaseTables"]),
             "matrixRows": len(matrix["matrix"]),
+            "prospectiveFeatureDomains": len(prospective_feature_domains(matrix)),
+            "movementQualityFeatures": len(movement_quality_feature_names(matrix)),
         }
     print(json.dumps(output, indent=2, sort_keys=True))
 
