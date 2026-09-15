@@ -5,6 +5,11 @@ import {
   StageOneCapture,
   type StageOneCaptureTelemetry,
 } from "@/components/pose/StageOneCapture";
+import { StageTwoAnalysisPanel } from "@/components/pose/StageTwoAnalysisPanel";
+import {
+  StageTwoMovementAnalyzer,
+  type StageTwoAnalysisSnapshot,
+} from "@/lib/biomechanics/stage-two-analysis";
 import type {
   PoseLandmarkName,
   PoseStreamFrame,
@@ -18,20 +23,44 @@ const CAPTURE_MODES: Array<{
   description: string;
 }> = [
   {
-    value: "general-front",
-    label: "Frontal plane",
-    description: "Face the camera for bilateral alignment and frontal-plane capture.",
+    value: "squat-side",
+    label: "Squat · side",
+    description: "Knee-flexion projection, trunk lean, reps, excursion, and tempo.",
+  },
+  {
+    value: "squat-front",
+    label: "Squat · front",
+    description: "Frontal knee-line deviation, pelvic-line tilt, and trunk alignment proxies.",
+  },
+  {
+    value: "push-up-side",
+    label: "Push-up · side",
+    description: "Elbow-flexion projection, trunk alignment, reps, excursion, and tempo.",
+  },
+  {
+    value: "shoulder-flexion-side",
+    label: "Shoulder flexion · side",
+    description: "Shoulder-elevation projection, excursion, trunk lean, reps, and tempo.",
   },
   {
     value: "general-side",
-    label: "Sagittal plane",
-    description: "Turn side-on for flexion/extension-oriented capture.",
+    label: "General · side",
+    description: "Explore supported sagittal-plane measurements without exercise-specific rep logic.",
+  },
+  {
+    value: "general-front",
+    label: "General · front",
+    description: "Explore supported frontal-plane measurements without exercise-specific rep logic.",
   },
 ];
 
 const ANCHOR_LANDMARKS: PoseLandmarkName[] = [
   "left_shoulder",
   "right_shoulder",
+  "left_elbow",
+  "right_elbow",
+  "left_wrist",
+  "right_wrist",
   "left_hip",
   "right_hip",
   "left_knee",
@@ -41,7 +70,9 @@ const ANCHOR_LANDMARKS: PoseLandmarkName[] = [
 ];
 
 export function MotionCaptureLab() {
-  const [movement, setMovement] = useState<MovementType>("general-front");
+  const [movement, setMovement] = useState<MovementType>("squat-side");
+  const analyzer = useMemo(() => new StageTwoMovementAnalyzer(movement), [movement]);
+  const [analysis, setAnalysis] = useState<StageTwoAnalysisSnapshot | null>(null);
   const [telemetry, setTelemetry] = useState<StageOneCaptureTelemetry | null>(null);
   const [captureReady, setCaptureReady] = useState(false);
   const [latestFrame, setLatestFrame] = useState<PoseStreamFrame | null>(null);
@@ -49,6 +80,7 @@ export function MotionCaptureLab() {
   const [posesDetected, setPosesDetected] = useState(0);
   const [worldFramesReceived, setWorldFramesReceived] = useState(0);
   const sessionKeyRef = useRef(0);
+  const lastAnalysisUiUpdateRef = useRef(-Infinity);
 
   function handleStreamFrame(frame: PoseStreamFrame) {
     setLatestFrame(frame);
@@ -57,14 +89,30 @@ export function MotionCaptureLab() {
     if (frame.pose.worldLandmarks.length === 33) {
       setWorldFramesReceived((current) => current + 1);
     }
+
+    const nextAnalysis = analyzer.ingest(frame);
+    const completedRep = nextAnalysis.latestCompletedRep !== null;
+    if (
+      completedRep ||
+      frame.timestampMs - lastAnalysisUiUpdateRef.current >= 100
+    ) {
+      lastAnalysisUiUpdateRef.current = frame.timestampMs;
+      setAnalysis(nextAnalysis);
+    }
   }
 
-  function resetStreamCounters() {
+  function selectMovement(nextMovement: MovementType) {
+    if (nextMovement === movement) return;
     sessionKeyRef.current += 1;
+    lastAnalysisUiUpdateRef.current = -Infinity;
+    setMovement(nextMovement);
+    setAnalysis(null);
     setLatestFrame(null);
     setFramesReceived(0);
     setPosesDetected(0);
     setWorldFramesReceived(0);
+    setTelemetry(null);
+    setCaptureReady(false);
   }
 
   const detectionRate = framesReceived > 0 ? posesDetected / framesReceived : null;
@@ -85,13 +133,14 @@ export function MotionCaptureLab() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
-                Stage 1 · Local pose capture
+                Stages 1–2 · Capture + movement measurement
               </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight">Motion capture instrument</h2>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight">Movement science lab</h2>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
               <StatusPill label="Video" value="Browser local" />
               <StatusPill label="Pose" value="MediaPipe 33-point" />
+              <StatusPill label="Analysis" value="2D projection" />
               <StatusPill
                 label="State"
                 value={captureReady ? "Framing usable" : telemetry ? "Adjust framing" : "Camera idle"}
@@ -101,9 +150,9 @@ export function MotionCaptureLab() {
           </div>
         </div>
 
-        <div className="grid gap-px bg-zinc-200 lg:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="grid gap-px bg-zinc-200 lg:grid-cols-[250px_minmax(0,1fr)]">
           <aside className="bg-[#f6f7f5] p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Capture plane</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Analysis profile</p>
             <p className="mt-2 text-xs leading-5 text-zinc-600">{mode.description}</p>
             <div className="mt-3 space-y-2">
               {CAPTURE_MODES.map((item) => {
@@ -112,10 +161,7 @@ export function MotionCaptureLab() {
                   <button
                     key={item.value}
                     type="button"
-                    onClick={() => {
-                      setMovement(item.value);
-                      resetStreamCounters();
-                    }}
+                    onClick={() => selectMovement(item.value)}
                     className={`w-full border px-3 py-3 text-left transition ${
                       selected
                         ? "border-zinc-950 bg-zinc-950 text-white"
@@ -134,7 +180,7 @@ export function MotionCaptureLab() {
             <div className="mt-6 border-t border-zinc-300 pt-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Stage boundary</p>
               <p className="mt-2 text-xs leading-5 text-zinc-600">
-                This workspace captures pose landmarks and capture quality only. It does not calculate joint angles, count repetitions, or classify injury risk.
+                Stage 2 calculates movement measurements, rep cycles, and timing only. Risk thresholds, diagnoses, and program changes remain disabled until Stage 3 and later review.
               </p>
             </div>
           </aside>
@@ -148,8 +194,12 @@ export function MotionCaptureLab() {
               onTelemetryChange={setTelemetry}
               overlay={
                 <div className="border border-white/20 bg-black/65 px-3 py-2 text-right text-[10px] uppercase tracking-[0.14em] text-white/70 backdrop-blur-sm">
-                  <div className="font-semibold text-white">Raw landmark stream</div>
-                  <div className="mt-1">No angle interpretation</div>
+                  <div className="font-semibold text-white">Stage 2 live measurement</div>
+                  <div className="mt-1">
+                    {analysis?.selectedSignalAngle
+                      ? `${humanizeCamel(analysis.selectedSignalAngle)} · ${analysis.consistency.repCount} reps`
+                      : "Acquiring stable movement signal"}
+                  </div>
                 </div>
               }
             />
@@ -161,12 +211,12 @@ export function MotionCaptureLab() {
         <MetricCard
           label="Analyzed frames"
           value={framesReceived.toLocaleString()}
-          detail="Frames submitted to pose inference in this browser session."
+          detail="Source frames submitted to browser-side pose inference."
         />
         <MetricCard
           label="Pose detection"
           value={detectionRate === null ? "—" : `${Math.round(detectionRate * 100)}%`}
-          detail="Descriptive capture quality only; not a clinical confidence score."
+          detail="Capture-quality statistic only; not a clinical confidence score."
         />
         <MetricCard
           label="Pose throughput"
@@ -176,15 +226,17 @@ export function MotionCaptureLab() {
         <MetricCard
           label="World landmarks"
           value={worldRate === null ? "—" : `${Math.round(worldRate * 100)}%`}
-          detail="MediaPipe model-relative 3D output availability; not calibrated laboratory coordinates."
+          detail="MediaPipe model-relative 3D output availability; Stage 2 angle math uses 2D image projections."
         />
       </section>
+
+      <StageTwoAnalysisPanel analysis={analysis} />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)]">
         <div className="border border-zinc-300 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Per-frame data</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Stage 1 source data</p>
               <h3 className="mt-1 text-base font-semibold text-zinc-950">Named anatomical anchors</h3>
             </div>
             <span className="text-xs text-zinc-500">
@@ -227,7 +279,7 @@ export function MotionCaptureLab() {
                 ) : (
                   <tr>
                     <td colSpan={6} className="px-5 py-8 text-center text-sm text-zinc-500">
-                      Enable the camera and place your full body in frame to populate the landmark stream.
+                      Enable the camera and place the required joints in frame to populate the landmark stream.
                     </td>
                   </tr>
                 )}
@@ -238,9 +290,9 @@ export function MotionCaptureLab() {
 
         <aside className="border border-zinc-300 bg-[#111413] p-5 text-white">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Frame contract · v1.1</p>
-          <h3 className="mt-2 text-lg font-semibold">Clean stream for later analysis</h3>
+          <h3 className="mt-2 text-lg font-semibold">Traceable source measurements</h3>
           <p className="mt-3 text-sm leading-6 text-white/60">
-            Every analyzed source frame receives a sequence number, monotonic timestamp, wall-clock timestamp, source-media time, image dimensions, pose status, named landmarks, trust state, world landmarks when available, and runtime telemetry.
+            Stage 2 derives its measurements from the same timestamped Stage 1 frame stream, preserving source-media time, visibility, and processing metadata for later review.
           </p>
 
           <dl className="mt-5 divide-y divide-white/10 border-y border-white/10 text-xs">
@@ -255,9 +307,9 @@ export function MotionCaptureLab() {
           </dl>
 
           <div className="mt-5 border border-white/10 bg-white/[0.04] p-4 text-xs leading-5 text-white/55">
-            <p className="font-semibold text-white/85">Scientific note</p>
+            <p className="font-semibold text-white/85">Measurement note</p>
             <p className="mt-1">
-              MediaPipe x/y coordinates are normalized image coordinates. World landmarks are model-relative 3D estimates, not calibrated motion-capture coordinates. Stage 2 must not treat them as laboratory-grade centimeters or millimeters without separate validation.
+              Stage 2 currently computes angles from normalized 2D image coordinates. MediaPipe world landmarks remain available for research, but they are not treated as calibrated laboratory 3D coordinates.
             </p>
           </div>
         </aside>
@@ -268,10 +320,10 @@ export function MotionCaptureLab() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-900/70">Privacy & scope</p>
           <div className="grid gap-4 text-sm leading-6 text-zinc-700 md:grid-cols-2">
             <p>
-              Webcam pixels are consumed by the browser-side MediaPipe pose model and are not uploaded or stored by this Stage 1 workspace. Only the in-memory landmark stream is rendered here.
+              Webcam pixels and Stage 2 calculations stay in this browser in the current workspace. The UI holds movement measurements in memory only; Stage 4 persistence has not been enabled here.
             </p>
             <p>
-              The MediaPipe package/model and WASM assets may be downloaded from configured remote hosts, and MediaPipe Tasks documents performance/utilization telemetry. That is different from sending the patient&apos;s video to this application server.
+              MediaPipe package/model and WASM assets may be downloaded from configured remote hosts. Joint-angle projections, rep segmentation, and tempo metrics are measurement features, not diagnoses or future-injury predictions.
             </p>
           </div>
         </div>
@@ -312,6 +364,12 @@ function humanizeLandmark(name: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function humanizeCamel(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (character) => character.toUpperCase());
 }
 
 function compactIso(value: string) {
