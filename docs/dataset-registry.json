@@ -1,6 +1,9 @@
 {
-  "schemaVersion": "1.0.0",
-  "lastReviewed": "2026-09-10",
+  "schemaVersion": "1.1.0",
+  "lastReviewed": "2026-09-15",
+  "canonicalMatrix": "../data/data-source-matrix.json",
+  "canonicalStatus": "compatibility-view-only",
+  "note": "This file is retained for compatibility with earlier documentation. New code should query data/data-source-matrix.json through lib/research/data-matrix.ts or ml/data_source_matrix.py.",
   "datasets": [
     {
       "id": "ui-prmd",
