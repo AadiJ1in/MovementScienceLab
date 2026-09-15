@@ -49,13 +49,17 @@ const SIDE_METRICS: readonly AngleName[] = [
   "trunkLean",
   "leftShoulderElevation",
   "rightShoulderElevation",
+  "leftElbowFlexion",
+  "rightElbowFlexion",
 ];
 
 const FULL_FRONT = [11, 12, 23, 24, 25, 26, 27, 28, 31, 32] as const;
 const SIDE_LEFT = [11, 23, 25, 27, 31] as const;
 const SIDE_RIGHT = [12, 24, 26, 28, 32] as const;
-const PUSH_LEFT = [11, 13, 23, 25, 27] as const;
-const PUSH_RIGHT = [12, 14, 24, 26, 28] as const;
+const PUSH_LEFT = [11, 13, 15, 23, 25, 27] as const;
+const PUSH_RIGHT = [12, 14, 16, 24, 26, 28] as const;
+const SHOULDER_LEFT = [11, 13, 23] as const;
+const SHOULDER_RIGHT = [12, 14, 24] as const;
 
 const KNEE_CYCLE_CONFIG: Omit<RepSegmentationConfig, "angleName"> = {
   startDeltaDegrees: 8,
@@ -66,6 +70,19 @@ const KNEE_CYCLE_CONFIG: Omit<RepSegmentationConfig, "angleName"> = {
   signalSmoothing: 0.65,
   minConfidence: 0.7,
   minRepDurationMs: 450,
+  maxRepDurationMs: 8000,
+  maxTrackingGapMs: 750,
+};
+
+const UPPER_LIMB_CYCLE_CONFIG: Omit<RepSegmentationConfig, "angleName"> = {
+  startDeltaDegrees: 10,
+  reversalDeltaDegrees: 5,
+  returnToleranceDegrees: 8,
+  minExcursionDegrees: 20,
+  baselineSmoothing: 0.08,
+  signalSmoothing: 0.65,
+  minConfidence: 0.7,
+  minRepDurationMs: 400,
   maxRepDurationMs: 8000,
   maxTrackingGapMs: 750,
 };
@@ -85,7 +102,7 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
   "squat-side": {
     id: "squat-side", label: "Squat — side view", developmentStatus: "research", view: "side",
     availableMetrics: SIDE_METRICS, primaryMetric: "leftKneeFlexion", secondaryMetrics: ["rightKneeFlexion", "trunkLean"],
-    supportedMeasurementLabels: ["Knee flexion", "Knee-flexion range across the captured cycle", "Trunk lean", "Rep segmentation"],
+    supportedMeasurementLabels: ["Knee flexion projection", "Knee-flexion excursion across the captured cycle", "Trunk lean", "Rep segmentation", "Tempo consistency"],
     cameraInstructions: "Stand approximately 90° to the camera. Keep your shoulder, hip, knee, ankle, and foot on the visible side unobstructed throughout the rep.",
     calibration: { mode: "best-visible-side", requiredLandmarks: [...SIDE_LEFT, ...SIDE_RIGHT], leftSideLandmarks: SIDE_LEFT, rightSideLandmarks: SIDE_RIGHT, description: "shoulder, hip, knee, ankle, and foot" },
     segmentation: { strategy: "angle-cycle", signalAngles: ["leftKneeFlexion", "rightKneeFlexion"], config: KNEE_CYCLE_CONFIG },
@@ -94,13 +111,24 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
   },
   "push-up-side": {
     id: "push-up-side", label: "Push-Up — side view", developmentStatus: "prototype", view: "side",
-    availableMetrics: SIDE_METRICS, primaryMetric: "leftShoulderElevation", secondaryMetrics: ["rightShoulderElevation", "trunkLean"],
-    supportedMeasurementLabels: ["Shoulder elevation", "Trunk lean", "Pose confidence"],
-    cameraInstructions: "Place the camera perpendicular to your body so your shoulder, elbow, hip, knee, and ankle remain visible during the full movement.",
-    calibration: { mode: "best-visible-side", requiredLandmarks: [...PUSH_LEFT, ...PUSH_RIGHT], leftSideLandmarks: PUSH_LEFT, rightSideLandmarks: PUSH_RIGHT, description: "shoulder, elbow, hip, knee, and ankle" },
-    segmentation: { strategy: "none", signalAngles: [] },
+    availableMetrics: SIDE_METRICS, primaryMetric: "leftElbowFlexion", secondaryMetrics: ["rightElbowFlexion", "trunkLean", "leftShoulderElevation", "rightShoulderElevation"],
+    supportedMeasurementLabels: ["Elbow flexion projection", "Elbow-flexion excursion", "Trunk lean", "Rep segmentation", "Tempo consistency"],
+    cameraInstructions: "Place the camera perpendicular to your body so the near-side shoulder, elbow, wrist, hip, knee, and ankle remain visible during the full movement.",
+    calibration: { mode: "best-visible-side", requiredLandmarks: [...PUSH_LEFT, ...PUSH_RIGHT], leftSideLandmarks: PUSH_LEFT, rightSideLandmarks: PUSH_RIGHT, description: "shoulder, elbow, wrist, hip, knee, and ankle" },
+    segmentation: { strategy: "angle-cycle", signalAngles: ["leftElbowFlexion", "rightElbowFlexion"], config: UPPER_LIMB_CYCLE_CONFIG },
     feedbackCapabilities: ["capture-quality", "within-session"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
-    shortDescription: "Capture side-view upper-body and trunk movement measurements.",
+    shortDescription: "Measure side-view elbow motion, trunk alignment, and push-up repetitions.",
+  },
+  "shoulder-flexion-side": {
+    id: "shoulder-flexion-side", label: "Shoulder flexion — side view", developmentStatus: "prototype", view: "side",
+    availableMetrics: ["leftShoulderElevation", "rightShoulderElevation", "trunkLean"],
+    primaryMetric: "leftShoulderElevation", secondaryMetrics: ["rightShoulderElevation", "trunkLean"],
+    supportedMeasurementLabels: ["Shoulder elevation projection", "Shoulder excursion", "Trunk lean", "Rep segmentation", "Tempo consistency"],
+    cameraInstructions: "Stand side-on to the camera. Keep the near-side shoulder, elbow, and hip visible while raising and lowering the arm in the sagittal plane.",
+    calibration: { mode: "best-visible-side", requiredLandmarks: [...SHOULDER_LEFT, ...SHOULDER_RIGHT], leftSideLandmarks: SHOULDER_LEFT, rightSideLandmarks: SHOULDER_RIGHT, description: "shoulder, elbow, and hip" },
+    segmentation: { strategy: "angle-cycle", signalAngles: ["leftShoulderElevation", "rightShoulderElevation"], config: UPPER_LIMB_CYCLE_CONFIG },
+    feedbackCapabilities: ["capture-quality", "within-session"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
+    shortDescription: "Measure side-view shoulder elevation and movement-cycle timing without clinical ROM claims.",
   },
   "general-front": {
     id: "general-front", label: "General movement — front view", developmentStatus: "prototype", view: "front",
@@ -114,10 +142,10 @@ export const EXERCISE_REGISTRY: Record<MovementType, ExerciseDefinition> = {
   },
   "general-side": {
     id: "general-side", label: "General movement — side view", developmentStatus: "prototype", view: "side",
-    availableMetrics: SIDE_METRICS, primaryMetric: "leftKneeFlexion", secondaryMetrics: ["rightKneeFlexion", "trunkLean", "leftShoulderElevation", "rightShoulderElevation"],
-    supportedMeasurementLabels: ["Knee flexion", "Trunk lean", "Shoulder elevation"],
-    cameraInstructions: "Stand side-on to the camera with your full body in frame and the near-side shoulder, hip, knee, ankle, and foot unobstructed.",
-    calibration: { mode: "best-visible-side", requiredLandmarks: [...SIDE_LEFT, ...SIDE_RIGHT], leftSideLandmarks: SIDE_LEFT, rightSideLandmarks: SIDE_RIGHT, description: "shoulder, hip, knee, ankle, and foot" },
+    availableMetrics: SIDE_METRICS, primaryMetric: "leftKneeFlexion", secondaryMetrics: ["rightKneeFlexion", "trunkLean", "leftShoulderElevation", "rightShoulderElevation", "leftElbowFlexion", "rightElbowFlexion"],
+    supportedMeasurementLabels: ["Knee flexion projection", "Trunk lean", "Shoulder elevation projection", "Elbow flexion projection"],
+    cameraInstructions: "Stand side-on to the camera with your full body in frame and the near-side shoulder, elbow, wrist, hip, knee, ankle, and foot unobstructed.",
+    calibration: { mode: "best-visible-side", requiredLandmarks: [...PUSH_LEFT, ...PUSH_RIGHT], leftSideLandmarks: PUSH_LEFT, rightSideLandmarks: PUSH_RIGHT, description: "shoulder, elbow, wrist, hip, knee, ankle, and foot" },
     segmentation: { strategy: "none", signalAngles: [] },
     feedbackCapabilities: ["capture-quality"], referenceTrajectorySupport: false, compatibleSourcedRules: [],
     shortDescription: "Explore supported sagittal-plane measurements without exercise-specific claims.",
