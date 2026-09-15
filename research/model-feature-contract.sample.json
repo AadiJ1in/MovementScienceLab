@@ -1,0 +1,11 @@
+{
+  "note": "Illustrative structure only. Generate the live report with `python ml/feature_contract_report.py`; do not treat this sample as a model artifact or clinical validation record.",
+  "prospectiveBenchmark": {
+    "source": "data/data-source-matrix.json",
+    "alignmentGate": "exact ordered domain/feature match required"
+  },
+  "movementQuality": {
+    "source": "movement-quality-feature-vector in data/data-source-matrix.json",
+    "alignmentGate": "exact ordered feature match required"
+  }
+}
