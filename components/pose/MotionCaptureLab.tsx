@@ -6,10 +6,17 @@ import {
   type StageOneCaptureTelemetry,
 } from "@/components/pose/StageOneCapture";
 import { StageTwoAnalysisPanel } from "@/components/pose/StageTwoAnalysisPanel";
+import { StageThreeReviewPanel } from "@/components/pose/StageThreeReviewPanel";
 import {
   StageTwoMovementAnalyzer,
   type StageTwoAnalysisSnapshot,
 } from "@/lib/biomechanics/stage-two-analysis";
+import {
+  evaluateStageThreeSnapshot,
+  mergeStageThreeFlags,
+  type StageThreeReviewFlag,
+  type StageThreeRule,
+} from "@/lib/biomechanics/stage-three-review";
 import type {
   PoseLandmarkName,
   PoseStreamFrame,
@@ -73,6 +80,9 @@ export function MotionCaptureLab() {
   const [movement, setMovement] = useState<MovementType>("squat-side");
   const analyzer = useMemo(() => new StageTwoMovementAnalyzer(movement), [movement]);
   const [analysis, setAnalysis] = useState<StageTwoAnalysisSnapshot | null>(null);
+  const [stageThreeRules, setStageThreeRules] = useState<StageThreeRule[]>([]);
+  const [stageThreeFlags, setStageThreeFlags] = useState<StageThreeReviewFlag[]>([]);
+  const stageThreeRulesRef = useRef<StageThreeRule[]>([]);
   const [telemetry, setTelemetry] = useState<StageOneCaptureTelemetry | null>(null);
   const [captureReady, setCaptureReady] = useState(false);
   const [latestFrame, setLatestFrame] = useState<PoseStreamFrame | null>(null);
@@ -91,6 +101,16 @@ export function MotionCaptureLab() {
     }
 
     const nextAnalysis = analyzer.ingest(frame);
+    const nextReviewFlags = evaluateStageThreeSnapshot(
+      nextAnalysis,
+      stageThreeRulesRef.current,
+    );
+    if (nextReviewFlags.length) {
+      setStageThreeFlags((current) =>
+        mergeStageThreeFlags(current, nextReviewFlags),
+      );
+    }
+
     const completedRep = nextAnalysis.latestCompletedRep !== null;
     if (
       completedRep ||
@@ -99,6 +119,18 @@ export function MotionCaptureLab() {
       lastAnalysisUiUpdateRef.current = frame.timestampMs;
       setAnalysis(nextAnalysis);
     }
+  }
+
+  function handleStageThreeRulesChange(nextRules: StageThreeRule[]) {
+    stageThreeRulesRef.current = nextRules;
+    setStageThreeRules(nextRules);
+    setStageThreeFlags([]);
+  }
+
+  function clearCurrentMovementFlags() {
+    setStageThreeFlags((current) =>
+      current.filter((flag) => flag.movement !== movement),
+    );
   }
 
   function selectMovement(nextMovement: MovementType) {
@@ -113,11 +145,15 @@ export function MotionCaptureLab() {
     setWorldFramesReceived(0);
     setTelemetry(null);
     setCaptureReady(false);
+    setStageThreeFlags([]);
   }
 
   const detectionRate = framesReceived > 0 ? posesDetected / framesReceived : null;
   const worldRate = framesReceived > 0 ? worldFramesReceived / framesReceived : null;
   const mode = CAPTURE_MODES.find((item) => item.value === movement) ?? CAPTURE_MODES[0];
+  const stageThreeMovementRuleCount = stageThreeRules.filter(
+    (rule) => rule.movement === movement,
+  ).length;
   const anchors = useMemo(() => {
     if (!latestFrame) return [];
     const byName = new Map(latestFrame.pose.landmarks.map((point) => [point.name, point]));
@@ -133,7 +169,7 @@ export function MotionCaptureLab() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-emerald-300/80">
-                Stages 1–2 · Capture + movement measurement
+                Stages 1–3 · Capture + measurement + reviewed flags
               </p>
               <h2 className="mt-1 text-lg font-semibold tracking-tight">Movement science lab</h2>
             </div>
@@ -141,6 +177,11 @@ export function MotionCaptureLab() {
               <StatusPill label="Video" value="Browser local" />
               <StatusPill label="Pose" value="MediaPipe 33-point" />
               <StatusPill label="Analysis" value="2D projection" />
+              <StatusPill
+                label="Stage 3"
+                value={stageThreeMovementRuleCount ? `${stageThreeMovementRuleCount} reviewed rules` : "No rules loaded"}
+                active={stageThreeMovementRuleCount > 0}
+              />
               <StatusPill
                 label="State"
                 value={captureReady ? "Framing usable" : telemetry ? "Adjust framing" : "Camera idle"}
@@ -180,7 +221,7 @@ export function MotionCaptureLab() {
             <div className="mt-6 border-t border-zinc-300 pt-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Stage boundary</p>
               <p className="mt-2 text-xs leading-5 text-zinc-600">
-                Stage 2 calculates movement measurements, rep cycles, and timing only. Risk thresholds, diagnoses, and program changes remain disabled until Stage 3 and later review.
+                Stage 3 can compare Stage 2 measurements with explicitly loaded, sourced review rules. No thresholds are enabled by default, and flags never diagnose injury or modify the exercise program.
               </p>
             </div>
           </aside>
@@ -231,6 +272,15 @@ export function MotionCaptureLab() {
       </section>
 
       <StageTwoAnalysisPanel analysis={analysis} />
+
+      <StageThreeReviewPanel
+        movement={movement}
+        analysis={analysis}
+        rules={stageThreeRules}
+        flags={stageThreeFlags}
+        onRulesChange={handleStageThreeRulesChange}
+        onClearFlags={clearCurrentMovementFlags}
+      />
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,.8fr)]">
         <div className="border border-zinc-300 bg-white">
@@ -292,7 +342,7 @@ export function MotionCaptureLab() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300/80">Frame contract · v1.1</p>
           <h3 className="mt-2 text-lg font-semibold">Traceable source measurements</h3>
           <p className="mt-3 text-sm leading-6 text-white/60">
-            Stage 2 derives its measurements from the same timestamped Stage 1 frame stream, preserving source-media time, visibility, and processing metadata for later review.
+            Stages 2–3 derive measurements and review indicators from the same timestamped Stage 1 frame stream, preserving source-media time, visibility, and processing metadata for later review.
           </p>
 
           <dl className="mt-5 divide-y divide-white/10 border-y border-white/10 text-xs">
@@ -320,10 +370,10 @@ export function MotionCaptureLab() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-900/70">Privacy & scope</p>
           <div className="grid gap-4 text-sm leading-6 text-zinc-700 md:grid-cols-2">
             <p>
-              Webcam pixels and Stage 2 calculations stay in this browser in the current workspace. The UI holds movement measurements in memory only; Stage 4 persistence has not been enabled here.
+              Webcam pixels, Stage 2 calculations, and Stage 3 review flags stay in this browser in the current workspace. The UI holds measurements and flags in memory only; Stage 4 persistence has not been enabled here.
             </p>
             <p>
-              MediaPipe package/model and WASM assets may be downloaded from configured remote hosts. Joint-angle projections, rep segmentation, and tempo metrics are measurement features, not diagnoses or future-injury predictions.
+              MediaPipe package/model and WASM assets may be downloaded from configured remote hosts. Joint-angle projections, rep segmentation, tempo metrics, and Stage 3 threshold crossings are review features, not diagnoses or future-injury predictions.
             </p>
           </div>
         </div>
