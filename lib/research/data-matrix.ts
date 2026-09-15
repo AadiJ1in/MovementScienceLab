@@ -1,4 +1,4 @@
-import matrixJson from "@/data/data-source-matrix.json";
+import matrixJson from "../../data/data-source-matrix.json";
 
 export type MatrixSource = {
   id: string;
