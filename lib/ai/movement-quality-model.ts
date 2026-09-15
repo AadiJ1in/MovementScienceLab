@@ -1,21 +1,24 @@
-export type MovementQualityFeatureName =
-  | "left_knee_flexion_min"
-  | "left_knee_flexion_max"
-  | "left_knee_flexion_range"
-  | "right_knee_flexion_min"
-  | "right_knee_flexion_max"
-  | "right_knee_flexion_range"
-  | "peak_abs_left_knee_frontal_deviation"
-  | "peak_abs_right_knee_frontal_deviation"
-  | "peak_trunk_lean"
-  | "peak_abs_pelvic_line_obliquity"
-  | "left_shoulder_elevation_peak"
-  | "right_shoulder_elevation_peak"
-  | "knee_flexion_asymmetry"
-  | "shoulder_elevation_asymmetry"
-  | "rep_duration_ms"
-  | "mean_pose_confidence"
-  | "min_pose_confidence";
+export const MOVEMENT_QUALITY_FEATURE_NAMES = [
+  "left_knee_flexion_min",
+  "left_knee_flexion_max",
+  "left_knee_flexion_range",
+  "right_knee_flexion_min",
+  "right_knee_flexion_max",
+  "right_knee_flexion_range",
+  "peak_abs_left_knee_frontal_deviation",
+  "peak_abs_right_knee_frontal_deviation",
+  "peak_trunk_lean",
+  "peak_abs_pelvic_line_obliquity",
+  "left_shoulder_elevation_peak",
+  "right_shoulder_elevation_peak",
+  "knee_flexion_asymmetry",
+  "shoulder_elevation_asymmetry",
+  "rep_duration_ms",
+  "mean_pose_confidence",
+  "min_pose_confidence",
+] as const;
+
+export type MovementQualityFeatureName = (typeof MOVEMENT_QUALITY_FEATURE_NAMES)[number];
 
 export type MovementQualityFeatures = Record<MovementQualityFeatureName, number | null>;
 
