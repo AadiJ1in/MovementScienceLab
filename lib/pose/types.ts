@@ -6,6 +6,7 @@ export type MovementType =
   | "squat-front"
   | "squat-side"
   | "push-up-side"
+  | "shoulder-flexion-side"
   | "general-front"
   | "general-side";
 
