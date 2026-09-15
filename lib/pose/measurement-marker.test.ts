@@ -37,6 +37,33 @@ describe("getPrimaryMeasurementMarker", () => {
     expect(marker?.interpretation).toBe("2d-projection-proxy");
   });
 
+  it("places push-up measurement on the more confident elbow", () => {
+    const marker = getPrimaryMeasurementMarker(frameWith({
+      11: { x: 0.35, y: 0.35, visibility: 0.75 },
+      13: { x: 0.42, y: 0.5, visibility: 0.75 },
+      15: { x: 0.52, y: 0.55, visibility: 0.75 },
+      12: { x: 0.62, y: 0.35, visibility: 0.98 },
+      14: { x: 0.66, y: 0.5, visibility: 0.98 },
+      16: { x: 0.74, y: 0.58, visibility: 0.98 },
+    }), "push-up-side");
+    expect(marker?.angleName).toBe("rightElbowFlexion");
+    expect(marker?.x).toBeCloseTo(0.66);
+    expect(marker?.label).toBe("Elbow flexion");
+  });
+
+  it("supports side-view shoulder-flexion markers", () => {
+    const marker = getPrimaryMeasurementMarker(frameWith({
+      11: { x: 0.4, y: 0.35, visibility: 0.96 },
+      13: { x: 0.45, y: 0.18, visibility: 0.96 },
+      23: { x: 0.4, y: 0.65, visibility: 0.96 },
+      12: { visibility: 0.6, trusted: false },
+      14: { visibility: 0.6, trusted: false },
+      24: { visibility: 0.6, trusted: false },
+    }), "shoulder-flexion-side");
+    expect(marker?.angleName).toBe("leftShoulderElevation");
+    expect(marker?.label).toBe("Shoulder elevation");
+  });
+
   it("returns null when required primary landmarks are not trusted", () => {
     const marker = getPrimaryMeasurementMarker(frameWith({
       23: { trusted: false }, 24: { trusted: false }, 25: { trusted: false }, 26: { trusted: false }, 27: { trusted: false }, 28: { trusted: false },

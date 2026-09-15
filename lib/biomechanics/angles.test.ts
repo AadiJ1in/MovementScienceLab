@@ -62,6 +62,28 @@ describe("computeAnglesForFrame", () => {
     expect(result.find((r) => r.angleName === "leftKneeFlexion")?.value).toBeCloseTo(90, 6);
   });
 
+  it("reports elbow flexion as 0 degrees when the arm is straight", () => {
+    const result = computeAnglesForFrame(
+      frame([
+        keypoint(11, 0, 0),
+        keypoint(13, 0, 1),
+        keypoint(15, 0, 2),
+      ]),
+    );
+    expect(result.find((r) => r.angleName === "leftElbowFlexion")?.value).toBeCloseTo(0, 6);
+  });
+
+  it("reports elbow flexion as 90 degrees at a right angle", () => {
+    const result = computeAnglesForFrame(
+      frame([
+        keypoint(11, 0, 0),
+        keypoint(13, 0, 1),
+        keypoint(15, 1, 1),
+      ]),
+    );
+    expect(result.find((r) => r.angleName === "leftElbowFlexion")?.value).toBeCloseTo(90, 6);
+  });
+
   it("uses the minimum landmark visibility as measurement confidence", () => {
     const result = computeAnglesForFrame(
       frame([

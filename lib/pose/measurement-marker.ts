@@ -29,6 +29,10 @@ const OPTIONS: Record<MovementType, readonly MarkerOption[]> = {
     { angleName: "rightKneeFlexion", landmarkIndex: 26, label: "Knee flexion", interpretation: "2d-angle" },
   ],
   "push-up-side": [
+    { angleName: "leftElbowFlexion", landmarkIndex: 13, label: "Elbow flexion", interpretation: "2d-angle" },
+    { angleName: "rightElbowFlexion", landmarkIndex: 14, label: "Elbow flexion", interpretation: "2d-angle" },
+  ],
+  "shoulder-flexion-side": [
     { angleName: "leftShoulderElevation", landmarkIndex: 11, label: "Shoulder elevation", interpretation: "2d-angle" },
     { angleName: "rightShoulderElevation", landmarkIndex: 12, label: "Shoulder elevation", interpretation: "2d-angle" },
   ],
