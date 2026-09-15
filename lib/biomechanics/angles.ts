@@ -8,7 +8,9 @@ export type AngleName =
   | "trunkLean"
   | "pelvicLineObliquity"
   | "leftShoulderElevation"
-  | "rightShoulderElevation";
+  | "rightShoulderElevation"
+  | "leftElbowFlexion"
+  | "rightElbowFlexion";
 
 export type AngleReading = {
   frameTimestamp: number;
@@ -24,6 +26,8 @@ const INDEX = {
   rightShoulder: 12,
   leftElbow: 13,
   rightElbow: 14,
+  leftWrist: 15,
+  rightWrist: 16,
   leftHip: 23,
   rightHip: 24,
   leftKnee: 25,
@@ -107,8 +111,9 @@ function kneeFrontalDeviation(
   const ankle = point(frame, INDEX[`${side}Ankle`]);
   if (!hip || !knee || !ankle) return null;
 
-  // This is a 2D frontal-plane proxy: deviation from a straight hip-knee-ankle line.
-  // Magnitude only. Do not interpret it as a diagnostic valgus/varus measurement.
+  // 2D frontal-plane projection proxy only. Magnitude is deviation from a
+  // straight hip-knee-ankle line and must not be interpreted as diagnostic
+  // valgus/varus without separate validation.
   const interior = angleAtVertex(hip, knee, ankle);
   return reading(
     frame,
@@ -206,11 +211,32 @@ function shoulderElevation(
   const hip = point(frame, INDEX[`${side}Hip`]);
   if (!shoulder || !elbow || !hip) return null;
 
+  // 2D arm elevation relative to the ipsilateral trunk line. In a side-on
+  // capture this can be used as a shoulder-flexion projection estimate, not a
+  // calibrated clinical goniometry measurement.
   return reading(
     frame,
     side === "left" ? "leftShoulderElevation" : "rightShoulderElevation",
     angleAtVertex(elbow, shoulder, hip),
     [shoulder, elbow, hip],
+  );
+}
+
+function elbowFlexion(
+  frame: PoseFrame,
+  side: "left" | "right",
+): AngleReading | null {
+  const shoulder = point(frame, INDEX[`${side}Shoulder`]);
+  const elbow = point(frame, INDEX[`${side}Elbow`]);
+  const wrist = point(frame, INDEX[`${side}Wrist`]);
+  if (!shoulder || !elbow || !wrist) return null;
+
+  const interior = angleAtVertex(shoulder, elbow, wrist);
+  return reading(
+    frame,
+    side === "left" ? "leftElbowFlexion" : "rightElbowFlexion",
+    180 - interior,
+    [shoulder, elbow, wrist],
   );
 }
 
@@ -224,5 +250,7 @@ export function computeAnglesForFrame(frame: PoseFrame): AngleReading[] {
     pelvicLineObliquity(frame),
     shoulderElevation(frame, "left"),
     shoulderElevation(frame, "right"),
+    elbowFlexion(frame, "left"),
+    elbowFlexion(frame, "right"),
   ].filter((value): value is AngleReading => value !== null);
 }
