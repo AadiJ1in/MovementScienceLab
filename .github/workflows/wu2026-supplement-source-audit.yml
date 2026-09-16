@@ -1,0 +1,76 @@
+name: Wu 2026 processed-data source audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "ml/wu2026_pmc_supplements.py"
+      - "ml/test_wu2026_pmc_supplements.py"
+      - "data/research-source-intake-matrix.json"
+      - ".github/workflows/wu2026-supplement-source-audit.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ml/wu2026_pmc_supplements.py"
+      - "data/research-source-intake-matrix.json"
+      - ".github/workflows/wu2026-supplement-source-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test source resolution safeguards
+        run: python -m unittest ml/test_wu2026_pmc_supplements.py
+
+      - name: Fetch publisher-deposited processed-data supplements from PMC Open Data
+        run: python ml/wu2026_pmc_supplements.py /tmp/wu2026
+
+      - name: Verify workbook files are present but do not parse or fit them
+        run: |
+          test -s /tmp/wu2026/41746_2026_2413_MOESM2_ESM.xlsx
+          test -s /tmp/wu2026/41746_2026_2413_MOESM3_ESM.xlsx
+          test -s /tmp/wu2026/wu2026-pmc-source-manifest.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('/tmp/wu2026/wu2026-pmc-source-manifest.json').read_text())
+          assert manifest['sourceId'] == 'wu-2026-running-injury'
+          assert manifest['modelWasFit'] is False
+          assert manifest['workbookContentsInspected'] is False
+          assert len(manifest['downloads']) == 2
+          print(json.dumps({
+              'selectedPmcVersion': manifest['selectedPmcVersion'],
+              'licenseCode': manifest['licenseCode'],
+              'downloads': [
+                  {
+                      'filename': item['filename'],
+                      'bytes': item['bytes'],
+                      'sha256': item['sha256'],
+                      'md5': item['md5'],
+                  }
+                  for item in manifest['downloads']
+              ],
+          }, indent=2))
+          PY
+
+      - name: Upload exact processed-data files for offline information audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: wu2026-processed-data-source-audit
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            /tmp/wu2026/41746_2026_2413_MOESM2_ESM.xlsx
+            /tmp/wu2026/41746_2026_2413_MOESM3_ESM.xlsx
+            /tmp/wu2026/wu2026-pmc-source-manifest.json
