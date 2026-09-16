@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "1.0.0",
+  "auditedAt": "2026-09-15",
+  "sourceId": "wu-2026-running-injury",
+  "purpose": "Pre-reanalysis audit of the published evaluation procedure and public code. This does not reproduce performance and does not fit a model.",
+  "modelWasFit": false,
+  "performanceWasRecomputed": false,
+  "publication": {
+    "doi": "10.1038/s41746-026-02413-y",
+    "url": "https://www.nature.com/articles/s41746-026-02413-y",
+    "pmcid": "PMC12987969",
+    "subjects": 142,
+    "weeklySamples": 6181,
+    "reportedInjuryInstances": 564
+  },
+  "publishedEvaluationProcedure": {
+    "crossValidation": "stratified 10-fold cross-validation with 90% training and 10% testing in each fold",
+    "participantGroupedCrossValidationReported": false,
+    "participantGroupingInterpretation": "The article describes stratification by injured-to-uninjured ratio but does not report participant-grouped folds. Because the 6181 rows are repeated weekly samples from 142 runners, row-level splitting would allow the same participant to contribute to both training and testing unless a separate grouping mechanism is present.",
+    "reliefFeatureRankingScope": "entire dataset before cross-validation",
+    "featureSubsetSelection": "successively larger top-ranked feature subsets were compared using average AUC from stratified 10-fold cross-validation and the best average-AUC subset was selected",
+    "lassoSelection": "multiple alpha values were used to rank/select features, followed by iterative feature-subset testing",
+    "hyperparameterTuning": "average AUC from stratified 10-fold cross-validation; grid search also tuned oversampling strategies and sampling rates",
+    "decisionThreshold": "models were retrained with selected hyperparameters and a threshold maximizing F1 was determined for threshold-dependent metrics"
+  },
+  "publicCodeSnapshot": {
+    "repository": "https://github.com/henrywu0709/TSNN-TSGNN-for-prognostic-modelling",
+    "commit": "fe6c05ecf803cc6280ab8e4ed912129eacf9379f",
+    "representativeNotebook": "all features/additional metrics/KNN class 123.ipynb",
+    "representativeNotebookObservations": [
+      "imports sklearn.model_selection.StratifiedKFold",
+      "constructs StratifiedKFold(n_splits=10, shuffle=True, random_state=42)",
+      "uses cv.split(X, y) without a groups argument",
+      "uses a fixed list of Relief-selected feature indexes before the cross-validation loop",
+      "collects out-of-fold predictions across all folds to choose an F1-maximizing threshold",
+      "runs the same 10-fold splitter again and reports threshold-dependent metrics using that globally selected threshold"
+    ],
+    "scopeBoundary": "These observations are from one representative public KNN evaluation notebook and should not be assumed to describe every notebook without separate inspection."
+  },
+  "movementScienceLabInterpretation": {
+    "publishedAucMayBeQuotedAsPublished": true,
+    "publishedAucMayBeTreatedAsIndependentExternalValidation": false,
+    "publishedAucMayBeTreatedAsMovementScienceLabPerformance": false,
+    "risksToAuditBeforeReanalysis": [
+      "participant dependence across repeated weekly rows",
+      "feature-selection optimism from ranking/selecting with information outside an outer validation loop",
+      "hyperparameter-selection optimism when the same cross-validation structure is used for tuning and final reporting",
+      "threshold-selection optimism for F1/sensitivity/specificity if threshold choice is not isolated inside training data",
+      "temporal leakage if future weeks from the same participant inform prediction of earlier weeks",
+      "preprocessing leakage if imputation/scaling/statistics are calculated outside training folds"
+    ],
+    "requiredReanalysisDesign": [
+      "verify stable participant identifier in the processed supplements",
+      "verify a weekly time/index variable and exact future outcome definition",
+      "freeze outcome, prediction horizon, candidate features, transformations, and model families before inspecting reanalysis performance",
+      "use participant-grouped outer validation or another pre-specified dependency-aware split that prevents participant leakage",
+      "fit imputation, scaling, feature selection, oversampling, model selection, calibration, and threshold selection using training data only",
+      "use nested validation when model/feature/hyperparameter choices are data-driven",
+      "report discrimination, calibration, uncertainty, prevalence-sensitive metrics, and subgroup/transport results separately",
+      "do not map laboratory biomechanics to webcam features until measurement compatibility is validated"
+    ]
+  }
+}
