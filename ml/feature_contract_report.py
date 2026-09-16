@@ -4,8 +4,10 @@ import json
 
 from data_source_matrix import (
     data_source_matrix_sha256,
+    load_research_source_intake,
     movement_quality_feature_names,
     prospective_feature_domains,
+    research_source_intake_sha256,
 )
 from prospective_injury_benchmark import FEATURE_DOMAINS
 
@@ -14,8 +16,11 @@ def build_feature_contract_report() -> dict[str, object]:
     matrix_domains = prospective_feature_domains()
     benchmark_domains = FEATURE_DOMAINS
     movement_features = movement_quality_feature_names()
+    intake = load_research_source_intake()
     return {
         "dataSourceMatrixSha256": data_source_matrix_sha256(),
+        "researchSourceIntakeMatrixSha256": research_source_intake_sha256(),
+        "verifiedIntakeSourceIds": [source["id"] for source in intake["sources"]],
         "prospectiveBenchmark": {
             "aligned": matrix_domains == benchmark_domains,
             "domains": {

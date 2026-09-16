@@ -1,0 +1,266 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-15",
+  "purpose": "Verified intake catalog for research datasets and media sources considered by MovementScienceLab but not necessarily activated in a runtime or training adapter. Source verification does not authorize model use.",
+  "activationRule": "A verified source remains intake-only until its license is compatible with the intended use, exact files are pinned, participant/time grouping is understood where relevant, an adapter is implemented, and the canonical data-source matrix is updated through review.",
+  "sources": [
+    {
+      "id": "rehab24-6",
+      "name": "REHAB24-6: A multi-modal dataset of physical rehabilitation exercises",
+      "status": "verified-intake-only",
+      "primarySource": "https://doi.org/10.5281/zenodo.13305826",
+      "dataSource": "https://zenodo.org/records/13305826",
+      "publication": "Černek A, Sedmidubsky J, Budikova P, et al. REHAB24-6: Physical Therapy Dataset for Analyzing Pose Estimation Methods. SISAP 2024.",
+      "subjects": 10,
+      "recordings": 65,
+      "frames": 184825,
+      "fps": 30,
+      "repetitions": 1072,
+      "exercises": [
+        "arm abduction",
+        "arm V-W transition",
+        "table push-up",
+        "leg abduction",
+        "leg lunge",
+        "squat"
+      ],
+      "modalities": [
+        "RGB video from two synchronized cameras",
+        "2D positions of 26 skeleton joints",
+        "3D positions of 26 skeleton joints",
+        "2D projected positions of 41 motion-capture markers",
+        "3D positions of 41 motion-capture markers",
+        "repetition segmentation"
+      ],
+      "labels": [
+        "binary exercise correctness",
+        "exercise identity",
+        "exercise direction/view",
+        "lighting condition",
+        "start frame",
+        "end frame"
+      ],
+      "videoManifest": {
+        "file": "videos.zip",
+        "size": "2.7 GB",
+        "md5": "ed183a245a1b171638e422f7a288e5a8",
+        "cameraDescriptions": [
+          "Camera17 horizontal",
+          "Camera18 vertical"
+        ],
+        "rawVideoInRepository": false
+      },
+      "fileManifest": [
+        {"file": "2d_joints.zip", "md5": "dbfbc09d3f087482abc3f6c23bcf48bd"},
+        {"file": "2d_markers.zip", "md5": "bbac9590be26025cd4a3d8e8bd0adc45"},
+        {"file": "3d_joints.zip", "md5": "c75ae3fc13fcf16d7f4ca36b93849c74"},
+        {"file": "3d_markers.zip", "md5": "1c84d3729af71351f5ab44965c989713"},
+        {"file": "joints_names.txt", "md5": "3f04a37cce43086b1ea1fa49f1e4514f"},
+        {"file": "marker_names.txt", "md5": "40d7171ee72d44f40dfe54f941f0e083"},
+        {"file": "Segmentation.csv", "md5": "90b8fbd7445dd050bf27b17126c78fbe"},
+        {"file": "Segmentation.txt", "md5": "5f2a5b886c6f794f03e1a8f642738c86"},
+        {"file": "videos.zip", "md5": "ed183a245a1b171638e422f7a288e5a8"}
+      ],
+      "licenseStatus": "Academic/non-profit noncommercial research use only according to the Zenodo record; commercial use requires contacting the dataset provider.",
+      "bestUse": [
+        "exercise-correctness research",
+        "human-pose-estimation evaluation",
+        "camera-view robustness",
+        "lighting robustness",
+        "2D-versus-motion-capture comparison"
+      ],
+      "notValidFor": [
+        "future-injury outcome ground truth",
+        "clinical diagnosis",
+        "commercial training without separate permission"
+      ],
+      "activationBlockers": [
+        "implement participant-disjoint adapter",
+        "map joint/marker conventions to MovementScienceLab measurements",
+        "pre-specify which exercise/camera conditions are in scope",
+        "confirm intended use is permitted by noncommercial terms"
+      ]
+    },
+    {
+      "id": "keraal",
+      "name": "KERAAL low-back-pain physical rehabilitation dataset",
+      "status": "verified-intake-only",
+      "primarySource": "https://keraal.enstb.org/KeraalDataset.html",
+      "dataSource": "https://keraal.enstb.org/KeraalDataset.html",
+      "codeSource": "https://github.com/nguyensmai/KeraalDataset",
+      "publication": "Nguyen SM, Devanne M, Remy-Neris O, Lempereur M, Thepaut A. A Medical Low-Back Pain Physical Rehabilitation Database for Human Body Movement Analysis. IJCNN 2024.",
+      "subjects": 21,
+      "populationBreakdown": {
+        "healthy": 9,
+        "lowBackPainPatients": 12
+      },
+      "exerciseCount": 3,
+      "modalities": [
+        "anonymized RGB video",
+        "Microsoft Kinect joint positions/orientations",
+        "Vicon motion-capture skeleton sequences",
+        "OpenPose-derived 2D skeleton data",
+        "BlazePose-derived 2D skeleton data",
+        "medical expert annotations"
+      ],
+      "labels": [
+        "correctness",
+        "error label",
+        "body part responsible for error",
+        "error start timestamp",
+        "error end timestamp"
+      ],
+      "videoManifest": {
+        "formats": ["AVI", "MP4"],
+        "documentedResolutions": ["960x544", "480x360"],
+        "rawVideoInRepository": false,
+        "note": "Dataset is distributed in multiple groups; use provider files directly and record exact group/file checksums before analysis."
+      },
+      "licenseStatus": "CC BY-NC-SA according to the official KERAAL dataset page.",
+      "bestUse": [
+        "clinically annotated rehabilitation movement quality",
+        "error recognition",
+        "spatial error localization",
+        "temporal error localization",
+        "cross-sensor measurement comparison"
+      ],
+      "notValidFor": [
+        "future-injury probability",
+        "generalization from low-back-pain rehabilitation to unrelated conditions without validation",
+        "commercial use outside license terms"
+      ],
+      "activationBlockers": [
+        "pin exact downloaded groups and checksums",
+        "define participant-disjoint splits",
+        "map Kinect/Vicon/OpenPose/BlazePose representations separately",
+        "do not treat sensor modalities as interchangeable without agreement validation"
+      ]
+    },
+    {
+      "id": "intellirehab",
+      "name": "IntelliRehabDS (IRDS)",
+      "status": "verified-intake-only",
+      "primarySource": "https://doi.org/10.3390/data6050046",
+      "dataSource": "https://zenodo.org/records/4610859",
+      "codeSource": "https://github.com/alina-miron/intellirehabds",
+      "subjects": 29,
+      "populationBreakdown": {
+        "patients": 15,
+        "healthyControls": 14
+      },
+      "gestureCount": 9,
+      "modalities": [
+        "Kinect-derived 3D skeleton joint positions",
+        "25 body joints",
+        "depth images",
+        "per-repetition CSV skeleton files"
+      ],
+      "labels": [
+        "subject ID",
+        "session/date ID",
+        "gesture label 0-8",
+        "repetition number",
+        "correct versus incorrect execution",
+        "sitting/wheelchair versus standing position"
+      ],
+      "videoManifest": {
+        "rgbVideoAvailable": false,
+        "depthImageArchivesAvailable": true,
+        "rawVideoInRepository": false,
+        "note": "The public Zenodo record exposes depth-image archives and SkeletonData.zip rather than ordinary RGB exercise video."
+      },
+      "fileManifest": [
+        {"file": "SkeletonData.zip", "size": "199.0 MB", "md5": "c243bcdbd1492e4928032e158accdd29"},
+        {"file": "DepthImages1-1.zip", "size": "5.8 GB", "md5": "d684fa817e97bb193406afce97a52330"},
+        {"file": "DepthImages1-2.zip", "size": "2.2 GB", "md5": "6ffd0857922d9191839bc00cb5377545"},
+        {"file": "DepthImages2-1.zip", "size": "5.5 GB", "md5": "ed25febf11fe893862090b33101f2fa4"},
+        {"file": "DepthImages2-2.zip", "size": "3.7 GB", "md5": "d05a738784fbc041201e1584d10e895d"},
+        {"file": "DepthImages2-3.zip", "size": "2.7 GB", "md5": "5cc2f76bba13c2e55562fa86e44200e6"},
+        {"file": "DepthImages2-4.zip", "size": "7.3 GB", "md5": "75aaf677fb36ffd8725d0f98b69d7ca2"},
+        {"file": "DepthImages2-5.zip", "size": "3.7 GB", "md5": "f559d655ea29266e541b3e961c7122fe"},
+        {"file": "DepthImages2-6.zip", "size": "3.9 GB", "md5": "51bbe42464216bed0da4ebe9014ca7f7"},
+        {"file": "DepthImages3.zip", "size": "6.4 GB", "md5": "048a37cf9ea08ca7d65cef0b2643a341"},
+        {"file": "readme.txt", "size": "2.0 kB", "md5": "655525729cd70a00ae5b6863e98141d3"}
+      ],
+      "licenseStatus": "Associated article and code are CC BY 4.0; verify the Zenodo dataset record's file-level rights before redistribution or derived-data publication.",
+      "bestUse": [
+        "rehabilitation movement correctness classification",
+        "patient-versus-control domain analysis",
+        "subject-disjoint movement-quality benchmarking",
+        "depth/skeleton representation research"
+      ],
+      "notValidFor": [
+        "future-injury outcome ground truth",
+        "patient diagnosis",
+        "random repetition-level splitting that leaks subjects"
+      ],
+      "activationBlockers": [
+        "pin the exact Zenodo version and SkeletonData.zip checksum",
+        "use subject-disjoint validation",
+        "separate measurement-quality variables from biological predictors",
+        "document handling of the partial recording for participant 217"
+      ]
+    },
+    {
+      "id": "wu-2026-running-injury",
+      "name": "Multidisciplinary prediction of running-related injuries using machine learning",
+      "status": "verified-intake-only",
+      "primarySource": "https://doi.org/10.1038/s41746-026-02413-y",
+      "dataSource": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12987969/",
+      "codeSource": "https://github.com/henrywu0709/TSNN-TSGNN-for-prognostic-modelling",
+      "publication": "Wu H, Brooke-Wavell K, Barnes MR, et al. npj Digital Medicine. 2026;9:213.",
+      "subjects": 142,
+      "followUp": "12 months",
+      "weeklySamples": 6181,
+      "reportedInjuryInstances": 564,
+      "reportedIdentifiedInjuries": 607,
+      "modalities": [
+        "injury/history",
+        "training",
+        "strength",
+        "biomechanics",
+        "body composition",
+        "nutrition",
+        "genetics",
+        "weekly prospective outcomes"
+      ],
+      "supplementManifest": [
+        {
+          "label": "Supplementary Data1",
+          "fileName": "41746_2026_2413_MOESM2_ESM.xlsx",
+          "reportedSize": "1.1 MB"
+        },
+        {
+          "label": "Supplementary Data2",
+          "fileName": "41746_2026_2413_MOESM3_ESM.xlsx",
+          "reportedSize": "7.8 MB"
+        }
+      ],
+      "labels": [
+        "prospectively monitored running-related injury outcomes",
+        "weekly prediction samples"
+      ],
+      "licenseStatus": "Article and supplementary materials are presented under CC BY 4.0 unless a file-specific credit line states otherwise; verify the downloaded supplementary file notice before redistribution.",
+      "bestUse": [
+        "prospective multimodal injury-prediction reanalysis",
+        "participant-grouped validation research",
+        "feature-domain comparison",
+        "external research benchmark after exact outcome/timing reconstruction"
+      ],
+      "notValidFor": [
+        "assuming 6181 weekly rows are independent participants",
+        "webcam measurement validation",
+        "direct transfer of published sample-level performance into MovementScienceLab",
+        "clinical deployment without independent validation"
+      ],
+      "activationBlockers": [
+        "verify participant identifiers are preserved in processed supplements",
+        "verify weekly temporal order and exact prediction index",
+        "reconstruct prospective outcome timing without leakage",
+        "freeze outcome/horizon/features before inspecting reanalysis performance",
+        "use participant-grouped or otherwise dependency-aware evaluation rather than sample-level random folds",
+        "map published biomechanics variables to webcam variables only after measurement-method compatibility analysis"
+      ]
+    }
+  ]
+}

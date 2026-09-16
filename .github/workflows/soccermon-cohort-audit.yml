@@ -6,6 +6,10 @@ on:
     branches: [main]
     paths:
       - "ml/soccermon_reference.py"
+      - "ml/data_source_matrix.py"
+      - "ml/artifact_provenance.py"
+      - "data/data-source-matrix.json"
+      - "data/research-source-intake-matrix.json"
       - ".github/workflows/soccermon-cohort-audit.yml"
 
 permissions:
@@ -113,6 +117,49 @@ jobs:
           )
           PY
 
+      - name: Stamp source and data-piece provenance
+        run: |
+          COMMON_ARGS=(
+            --source soccermon
+            --data-piece soccermon-daily-load
+            --data-piece soccermon-readiness
+            --data-piece soccermon-sleep-quality
+            --data-piece soccermon-soreness
+            --data-piece soccermon-injury-event
+            --data-piece prospective-history-domain
+            --data-piece prospective-symptoms-readiness-domain
+            --data-piece prospective-training-exposure-domain
+            --data-piece prospective-outcome-and-timing
+          )
+
+          python ml/artifact_provenance.py \
+            /tmp/soccermon-cohort-metadata.json \
+            /tmp/soccermon-cohort-metadata.json \
+            "${COMMON_ARGS[@]}" \
+            --input-file /tmp/soccermon-subjective.zip
+
+          python ml/artifact_provenance.py \
+            /tmp/soccermon-cohort-audit.json \
+            /tmp/soccermon-cohort-audit.json \
+            "${COMMON_ARGS[@]}" \
+            --input-file /tmp/soccermon-cohort.csv
+
+          python ml/artifact_provenance.py \
+            /tmp/soccermon-information-summary.json \
+            /tmp/soccermon-information-summary.json \
+            "${COMMON_ARGS[@]}" \
+            --input-file /tmp/soccermon-cohort.csv
+
+          python ml/data_source_matrix.py \
+            --provenance-source soccermon \
+            --data-piece soccermon-daily-load \
+            --data-piece soccermon-readiness \
+            --data-piece soccermon-sleep-quality \
+            --data-piece soccermon-soreness \
+            --data-piece soccermon-injury-event \
+            --data-piece prospective-outcome-and-timing \
+            > /tmp/soccermon-source-provenance.json
+
       - name: Upload cohort audit artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -123,3 +170,4 @@ jobs:
             /tmp/soccermon-cohort-metadata.json
             /tmp/soccermon-cohort-audit.json
             /tmp/soccermon-information-summary.json
+            /tmp/soccermon-source-provenance.json
