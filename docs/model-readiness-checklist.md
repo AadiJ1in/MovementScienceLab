@@ -17,6 +17,20 @@ This checklist is a release blocker for any future work that attempts to convert
 - [ ] Dataset/license/provenance are recorded.
 - [ ] The canonical cohort-audit JSON is retained with the model artifact.
 
+## Independent information and pre-fit planning
+
+- [ ] The independence unit is explicitly defined; repeated rows are not reported as independent participants.
+- [ ] Participant-level counts include participants with and without at least one positive outcome window.
+- [ ] Site-level event imbalance is reported before model performance is inspected.
+- [ ] Predictor missingness is reported before model performance is inspected.
+- [ ] A context-specific sample-size/information justification is documented; a universal events-per-predictor rule is not substituted for it.
+- [ ] The exact candidate predictor list is frozen before performance evaluation.
+- [ ] Predictor order and preprocessing/transformation rules are frozen before performance evaluation.
+- [ ] Candidate model families are frozen before performance evaluation.
+- [ ] Post-hoc feature expansion to improve observed performance is prohibited.
+- [ ] A versioned feature plan explicitly authorizes model fitting; an information-audit-only plan cannot be used to fit a model.
+- [ ] Any change to the outcome, horizon, feature set, transformations, or candidate model families creates a new versioned plan and is clearly separated from prior performance results.
+
 ## Camera measurement validity
 
 - [ ] Camera/pose implementation has a version identifier.

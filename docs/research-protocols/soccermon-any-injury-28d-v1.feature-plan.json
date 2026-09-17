@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0.0",
+  "planId": "soccermon-any-recorded-injury-28d-v1",
+  "planVersion": "1.0.0",
+  "planSource": "Frozen after the real-data information audit and before any predictive model performance was evaluated. GitHub cohort-audit run 34796802563 at source commit 38da2174019f6f6627e61a01a9fb6e7ff3f868b9.",
+  "specifiedBeforePerformanceEvaluation": true,
+  "postHocFeatureExpansionAllowed": false,
+  "outcomeName": "any recorded injury event",
+  "predictionHorizonDays": 28,
+  "independenceUnit": "participant",
+  "candidatePredictors": [
+    "previous_injury_count",
+    "days_since_last_injury",
+    "soreness_score",
+    "sleep_quality_score",
+    "readiness_score",
+    "session_rpe_load_7d",
+    "session_rpe_load_28d"
+  ],
+  "modelFamilies": [
+    "logistic_regression",
+    "random_forest",
+    "extra_trees"
+  ],
+  "transformations": {
+    "missingNumericPredictors": "median imputation fit inside each training fold only",
+    "logisticRegressionScaling": "standardization fit inside each training fold only",
+    "treeScaling": "none",
+    "featureSelection": "none; the seven candidate predictors are frozen",
+    "outcomeWindowOverlap": "none; stride equals 28-day horizon"
+  },
+  "modelFittingAuthorized": false,
+  "modelFittingAuthorizationRationale": "The 28-day real-data audit contains 50 independent participants but only 13 participants with at least one positive window. There are 41 positive windows, but repeated windows from the same athlete are not independent development subjects. Team B contributes only 2 positive windows, and soreness, sleep-quality, and readiness predictors are missing in 41.36% of windows. No clustered/repeated-measures sample-size justification has yet established that this information is adequate for flexible model-family development and calibration. Therefore predictive performance must remain uninspected at this phase.",
+  "sampleSizeMethod": null
+}
