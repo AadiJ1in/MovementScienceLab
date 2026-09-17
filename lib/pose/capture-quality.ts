@@ -9,6 +9,7 @@ export type CapturePerformanceSnapshot = {
   estimatedDroppedProcessingFrames: number;
   meanPoseConfidence: number | null;
   confidenceStdDev: number | null;
+  poseCenterJitter: number | null;
   qualityIssues: CaptureQualityIssue[];
   recommendLowerProcessingResolution: boolean;
 };
@@ -17,12 +18,16 @@ type Sample = {
   timestampMs: number;
   inferenceLatencyMs: number;
   poseConfidence: number | null;
+  poseCenterX?: number | null;
+  poseCenterY?: number | null;
 };
 
 /**
  * Browser capture-performance monitor. Dropped-frame counts estimate frames not
  * processed by pose inference relative to the camera's reported FPS; they are
  * engineering telemetry, not camera-hardware diagnostics or clinical measures.
+ * Pose-center jitter is a short-window framing-stability signal and is not a
+ * biomechanical measurement or empirical camera measurement error.
  */
 export class CapturePerformanceMonitor {
   private samples: Sample[] = [];
@@ -59,6 +64,26 @@ export class CapturePerformanceMonitor {
       ? null
       : Math.sqrt(confidenceValues.reduce((sum, value) => sum + (value - meanPoseConfidence) ** 2, 0) / confidenceValues.length);
 
+    const centers = this.samples
+      .filter(
+        (item): item is Sample & { poseCenterX: number; poseCenterY: number } =>
+          typeof item.poseCenterX === "number" &&
+          Number.isFinite(item.poseCenterX) &&
+          typeof item.poseCenterY === "number" &&
+          Number.isFinite(item.poseCenterY),
+      );
+    let poseCenterJitter: number | null = null;
+    if (centers.length >= 4) {
+      const meanX = centers.reduce((sum, item) => sum + item.poseCenterX, 0) / centers.length;
+      const meanY = centers.reduce((sum, item) => sum + item.poseCenterY, 0) / centers.length;
+      poseCenterJitter = Math.sqrt(
+        centers.reduce(
+          (sum, item) => sum + (item.poseCenterX - meanX) ** 2 + (item.poseCenterY - meanY) ** 2,
+          0,
+        ) / centers.length,
+      );
+    }
+
     const expectedFrames = cameraFps && elapsedMs > 1 ? (cameraFps * elapsedMs) / 1000 : this.samples.length;
     const estimatedDroppedProcessingFrames = Math.max(0, Math.round(expectedFrames - Math.max(0, this.samples.length - 1)));
     const qualityIssues: CaptureQualityIssue[] = [];
@@ -83,6 +108,7 @@ export class CapturePerformanceMonitor {
       estimatedDroppedProcessingFrames,
       meanPoseConfidence,
       confidenceStdDev,
+      poseCenterJitter,
       qualityIssues,
       recommendLowerProcessingResolution:
         targetResolution === "1080p" && processingFps > 0 && processingFps < 18,
