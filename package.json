@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "smoke:production": "bash scripts/smoke-production.sh"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1",
