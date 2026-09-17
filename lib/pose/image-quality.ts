@@ -14,6 +14,12 @@ export const DEFAULT_IMAGE_QUALITY_CONFIG: ImageQualityConfig = {
   minSharpnessScore: 3.5,
 };
 
+export type RgbaImageData = {
+  width: number;
+  height: number;
+  data: ArrayLike<number>;
+};
+
 export type ImageQualitySnapshot = {
   meanLuminance: number;
   darkFraction: number;
@@ -32,7 +38,7 @@ export type ImageQualitySnapshot = {
  * not be presented as empirical measurement uncertainty.
  */
 export function analyzeImageQuality(
-  image: ImageData,
+  image: RgbaImageData,
   config: ImageQualityConfig = DEFAULT_IMAGE_QUALITY_CONFIG,
 ): ImageQualitySnapshot {
   if (image.width < 2 || image.height < 2 || image.data.length < image.width * image.height * 4) {
@@ -46,9 +52,9 @@ export function analyzeImageQuality(
   for (let index = 0; index < luminance.length; index += 1) {
     const base = index * 4;
     const value =
-      0.2126 * image.data[base] +
-      0.7152 * image.data[base + 1] +
-      0.0722 * image.data[base + 2];
+      0.2126 * Number(image.data[base]) +
+      0.7152 * Number(image.data[base + 1]) +
+      0.0722 * Number(image.data[base + 2]);
     luminance[index] = value;
     sum += value;
     if (value <= 20) dark += 1;
