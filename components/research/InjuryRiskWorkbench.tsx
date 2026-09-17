@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StageOneCapture } from "@/components/pose/StageOneCapture";
 import {
   StageTwoMovementAnalyzer,
@@ -93,6 +93,8 @@ function formatFeature(key: keyof MediaPipeRiskFeatures, value: number | null): 
 }
 
 export function InjuryRiskWorkbench() {
+  const [activeModel, setActiveModel] = useState<PortableInjuryRiskModelArtifact>(demoModel);
+  const [modelLoadStatus, setModelLoadStatus] = useState<"demo" | "loading" | "prospective" | "error">("demo");
   const [movement, setMovement] = useState<MovementType>("squat-side");
   const analyzer = useMemo(() => new StageTwoMovementAnalyzer(movement), [movement]);
   const [analysis, setAnalysis] = useState<StageTwoAnalysisSnapshot | null>(null);
@@ -103,6 +105,33 @@ export function InjuryRiskWorkbench() {
   const [inputs, setInputs] = useState(INITIAL_INPUTS);
   const [capturedProfiles, setCapturedProfiles] = useState<string[]>([]);
   const lastUiRef = useRef(-Infinity);
+
+  useEffect(() => {
+    const modelUrl = process.env.NEXT_PUBLIC_INJURY_RISK_MODEL_URL?.trim();
+    if (!modelUrl) return;
+    let cancelled = false;
+    setModelLoadStatus("loading");
+    fetch(modelUrl, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Model request failed with ${response.status}`);
+        return (await response.json()) as PortableInjuryRiskModelArtifact;
+      })
+      .then((artifact) => {
+        if (cancelled) return;
+        setActiveModel(artifact);
+        setModelLoadStatus(
+          artifact.trainingDataType === "prospective-human" ? "prospective" : "demo",
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setActiveModel(demoModel);
+        setModelLoadStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleFrame(frame: PoseStreamFrame) {
     const snapshot = analyzer.ingest(frame);
@@ -140,8 +169,8 @@ export function InjuryRiskWorkbench() {
   }, [inputs, cameraFeatures]);
 
   const inference = useMemo(
-    () => inferPortableInjuryRisk(demoModel, featureValues),
-    [featureValues],
+    () => inferPortableInjuryRisk(activeModel, featureValues),
+    [activeModel, featureValues],
   );
 
   const cameraObserved = Object.entries(cameraFeatures).filter(
@@ -171,7 +200,7 @@ export function InjuryRiskWorkbench() {
             </div>
             <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-xs leading-5 text-amber-100">
               <p className="font-semibold">Current evidence state</p>
-              <p>Synthetic end-to-end model · clinical validation not claimed</p>
+              <p>{modelLoadStatus === "prospective" ? "Prospective-human research artifact loaded" : modelLoadStatus === "loading" ? "Loading prospective artifact…" : "Synthetic end-to-end model · clinical validation not claimed"}</p>
             </div>
           </div>
         </div>
@@ -342,6 +371,34 @@ export function InjuryRiskWorkbench() {
         </div>
       </section>
 
+      <section className="rounded-[1.75rem] border border-zinc-200 bg-white p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">Loaded model artifact</p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-950">{activeModel.modelName}</h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">{activeModel.provenance.note}</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            activeModel.trainingDataType === "prospective-human"
+              ? "bg-sky-100 text-sky-800"
+              : "bg-amber-100 text-amber-900"
+          }`}>
+            {activeModel.trainingDataType.replaceAll("-", " ")}
+          </span>
+        </div>
+        <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <ModelStat label="Participants" value={String(activeModel.validation.nParticipants)} />
+          <ModelStat label="Rows" value={String(activeModel.validation.nRows)} />
+          <ModelStat label="AUROC" value={activeModel.validation.auroc === null ? "—" : activeModel.validation.auroc.toFixed(3)} />
+          <ModelStat label="AUPRC" value={activeModel.validation.auprc === null ? "—" : activeModel.validation.auprc.toFixed(3)} />
+          <ModelStat label="External validation" value={activeModel.validation.externalValidated ? "Yes" : "No"} />
+          <ModelStat label="Camera-domain validation" value={activeModel.validation.cameraDomainValidated ? "Yes" : "No"} />
+        </dl>
+        <p className="mt-4 text-xs leading-5 text-zinc-500">
+          Even a prospective-human artifact remains a research estimate here. This interface never enables a clinically validated injury probability automatically.
+        </p>
+      </section>
+
       <section className="grid gap-5 md:grid-cols-3">
         <EvidenceCard
           title="Published prospective benchmark"
@@ -384,6 +441,16 @@ function EvidenceCard({
           Open source
         </a>
       )}
+    </div>
+  );
+}
+
+
+function ModelStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-zinc-50 p-3">
+      <dt className="text-[11px] text-zinc-500">{label}</dt>
+      <dd className="mt-1 text-sm font-semibold text-zinc-950">{value}</dd>
     </div>
   );
 }
