@@ -80,6 +80,18 @@ class PortableInjuryModelExportTests(unittest.TestCase):
         )
         self.assertFalse(portable["deploymentGate"]["eligibleForResearchRiskEstimate"])
 
+    def test_synthetic_export_never_enables_research_estimate(self):
+        portable = build_portable_artifact(
+            self._bundle(),
+            self._artifact(gate=True),
+            source_label="synthetic",
+            source_url=None,
+            model_version="synthetic-1",
+            training_data_type="synthetic-development-fixture",
+        )
+        self.assertEqual(portable["trainingDataType"], "synthetic-development-fixture")
+        self.assertFalse(portable["deploymentGate"]["eligibleForResearchRiskEstimate"])
+
     def test_missing_portable_candidate_fails_closed(self):
         with self.assertRaises(ValueError):
             build_portable_artifact(
