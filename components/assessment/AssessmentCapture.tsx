@@ -18,6 +18,7 @@ import {
   withoutExactDevice,
 } from "@/lib/pose/camera-preferences";
 import { evaluateCameraGuidance, KEYPOINT_VISIBILITY_THRESHOLD, MOVEMENT_GUIDANCE } from "@/lib/pose/camera-guidance";
+import { analyzeImageQuality, type ImageQualitySnapshot } from "@/lib/pose/image-quality";
 import { getPrimaryMeasurementMarker, type MeasurementMarker } from "@/lib/pose/measurement-marker";
 import { toPoseFrame, type MovementType, type PoseFrame } from "@/lib/pose/types";
 
@@ -26,6 +27,9 @@ const POSE_MODEL = process.env.NEXT_PUBLIC_MEDIAPIPE_MODEL_URL?.trim() || "https
 const REQUESTED_FPS = 30;
 const TELEMETRY_UI_INTERVAL_MS = 500;
 const POSE_UI_INTERVAL_MS = 100;
+const CALIBRATION_STABILITY_JITTER_LIMIT = 0.025;
+const IMAGE_QUALITY_SAMPLE_WIDTH = 160;
+const IMAGE_QUALITY_SAMPLE_HEIGHT = 90;
 
 export type AssessmentCaptureTelemetry = {
   width?: number;
@@ -38,6 +42,9 @@ export type AssessmentCaptureTelemetry = {
   estimatedDroppedProcessingFrames?: number;
   meanPoseConfidence?: number | null;
   confidenceStdDev?: number | null;
+  poseCenterJitter?: number | null;
+  cameraStable?: boolean | null;
+  imageQuality?: ImageQualitySnapshot;
   facingMode?: string;
   deviceLabel?: string;
   delegate?: "GPU" | "CPU";
@@ -57,6 +64,7 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
+  const imageQualityCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -247,14 +255,22 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
             const poseConfidence = nextFrame
               ? nextFrame.keypoints.reduce((sum, point) => sum + point.visibility, 0) / nextFrame.keypoints.length
               : null;
+            const poseCenter = nextFrame ? trustedPoseCenter(nextFrame) : null;
             const snapshot = performanceMonitor.add(
-              { timestampMs: timestamp, inferenceLatencyMs, poseConfidence },
+              {
+                timestampMs: timestamp,
+                inferenceLatencyMs,
+                poseConfidence,
+                poseCenterX: poseCenter?.x ?? null,
+                poseCenterY: poseCenter?.y ?? null,
+              },
               settings.frameRate,
               effectivePreference.targetResolution,
             );
 
             if (timestamp - lastTelemetryUiUpdateRef.current >= TELEMETRY_UI_INTERVAL_MS) {
               lastTelemetryUiUpdateRef.current = timestamp;
+              const imageQuality = sampleVideoImageQuality(activeVideo, imageQualityCanvasRef);
               setTelemetry({
                 ...baseTelemetry,
                 inferenceFps: snapshot.processingFps,
@@ -263,6 +279,12 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
                 estimatedDroppedProcessingFrames: snapshot.estimatedDroppedProcessingFrames,
                 meanPoseConfidence: snapshot.meanPoseConfidence,
                 confidenceStdDev: snapshot.confidenceStdDev,
+                poseCenterJitter: snapshot.poseCenterJitter,
+                cameraStable:
+                  snapshot.poseCenterJitter === null
+                    ? null
+                    : snapshot.poseCenterJitter <= CALIBRATION_STABILITY_JITTER_LIMIT,
+                ...(imageQuality ? { imageQuality } : {}),
                 qualityIssues: snapshot.qualityIssues,
                 recommendLowerProcessingResolution: snapshot.recommendLowerProcessingResolution,
               });
@@ -313,6 +335,12 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
 
   const config = MOVEMENT_GUIDANCE[movement];
   const qualityIssues = telemetry?.qualityIssues ?? [];
+  const imageQualityMessages = telemetry?.imageQuality
+    ? [
+        ...(telemetry.imageQuality.lightingAcceptable ? [] : ["Lighting is outside the preferred calibration range."]),
+        ...(telemetry.imageQuality.blurAcceptable ? [] : ["Image sharpness is low. Stabilize/focus the camera and improve lighting."]),
+      ]
+    : [];
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -365,16 +393,19 @@ export function AssessmentCapture({ movement, onFrame, onReadyChange, onTelemetr
               <TelemetryCell label="Pose FPS" value={telemetry.processingFps?.toFixed(1) ?? "—"} />
               <TelemetryCell label="Inference latency" value={telemetry.averageInferenceLatencyMs !== undefined ? `${telemetry.averageInferenceLatencyMs.toFixed(1)} ms` : "—"} />
               <TelemetryCell label="Processing drops*" value={String(telemetry.estimatedDroppedProcessingFrames ?? 0)} />
-              <TelemetryCell label="Confidence stability" value={telemetry.confidenceStdDev === null || telemetry.confidenceStdDev === undefined ? "—" : telemetry.confidenceStdDev < 0.06 ? "Stable" : telemetry.confidenceStdDev < 0.12 ? "Moderate" : "Unstable"} />
+              <TelemetryCell label="Tracking stability" value={telemetry.confidenceStdDev === null || telemetry.confidenceStdDev === undefined ? "—" : telemetry.confidenceStdDev < 0.06 ? "Stable" : telemetry.confidenceStdDev < 0.12 ? "Moderate" : "Unstable"} />
+              <TelemetryCell label="Pose-center stability" value={telemetry.cameraStable === null || telemetry.cameraStable === undefined ? "—" : telemetry.cameraStable ? "Stable" : "Moving"} />
+              <TelemetryCell label="Lighting" value={telemetry.imageQuality ? telemetry.imageQuality.lightingAcceptable ? "Acceptable" : "Adjust" : "—"} />
+              <TelemetryCell label="Image sharpness" value={telemetry.imageQuality ? telemetry.imageQuality.blurAcceptable ? "Acceptable" : "Low" : "—"} />
               <TelemetryCell label="Runtime" value={delegate ?? "—"} />
             </dl>}
-            <p className="text-[11px] leading-4 text-zinc-500">*Processing drops estimate camera frames not analyzed by pose inference. They are not hardware frame-drop measurements.</p>
+            <p className="text-[11px] leading-4 text-zinc-500">*Processing drops estimate camera frames not analyzed by pose inference. Tracking, lighting, and sharpness are engineering capture checks, not empirical measurement error.</p>
           </>
         )}
 
         {telemetry?.recommendLowerProcessingResolution && targetResolution === "1080p" && <div className="rounded-2xl bg-sky-50 p-4 text-sm text-sky-950"><p className="font-semibold">Performance mode recommended</p><p className="mt-1 text-xs leading-5">1080p is reducing real-time pose throughput on this device. Video measurement may be more stable at 720p.</p><button type="button" onClick={() => updatePreference({ ...preference, targetResolution: "720p" })} className="mt-3 rounded-lg bg-sky-700 px-3 py-2 text-xs font-semibold text-white">Switch to 720p</button></div>}
 
-        {captureEnabled && <div className={`rounded-2xl p-4 text-sm ${captureReady && qualityIssues.length === 0 ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950"}`}><p className="font-semibold">{captureReady && qualityIssues.length === 0 ? "Capture quality looks usable" : "Capture quality needs attention"}</p><ul className="mt-2 space-y-1 text-xs leading-5">{guidance.messages.map((message) => <li key={message}>• {message}</li>)}{qualityIssues.map((issue) => <li key={issue.code}>• {issue.message}</li>)}</ul><p className="mt-2 text-[11px] opacity-70">These are engineering capture-quality checks, not clinical findings.</p></div>}
+        {captureEnabled && <div className={`rounded-2xl p-4 text-sm ${captureReady && qualityIssues.length === 0 && imageQualityMessages.length === 0 ? "bg-emerald-50 text-emerald-950" : "bg-amber-50 text-amber-950"}`}><p className="font-semibold">{captureReady && qualityIssues.length === 0 && imageQualityMessages.length === 0 ? "Capture quality looks usable" : "Capture quality needs attention"}</p><ul className="mt-2 space-y-1 text-xs leading-5">{guidance.messages.map((message) => <li key={message}>• {message}</li>)}{qualityIssues.map((issue) => <li key={issue.code}>• {issue.message}</li>)}{imageQualityMessages.map((message) => <li key={message}>• {message}</li>)}</ul><p className="mt-2 text-[11px] opacity-70">These are engineering capture-quality checks, not clinical findings or measurement-accuracy estimates.</p></div>}
 
         {error && <div role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-red-800">{error}</div>}
       </aside>
@@ -402,6 +433,36 @@ function cameraErrorMessage(caught: unknown) {
     if (caught.name === "OverconstrainedError") return "This camera cannot provide the requested capture mode. Choose another camera or resolution.";
   }
   return caught instanceof Error ? caught.message : "Unable to start camera analysis.";
+}
+
+function trustedPoseCenter(frame: PoseFrame): { x: number; y: number } | null {
+  const points = frame.keypoints.filter((point) => point.trusted);
+  if (points.length < 4) return null;
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+  };
+}
+
+function sampleVideoImageQuality(
+  video: HTMLVideoElement,
+  canvasRef: { current: HTMLCanvasElement | null },
+): ImageQualitySnapshot | null {
+  try {
+    let canvas = canvasRef.current;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      canvas.width = IMAGE_QUALITY_SAMPLE_WIDTH;
+      canvas.height = IMAGE_QUALITY_SAMPLE_HEIGHT;
+      canvasRef.current = canvas;
+    }
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return analyzeImageQuality(context.getImageData(0, 0, canvas.width, canvas.height));
+  } catch {
+    return null;
+  }
 }
 
 function drawResult(result: PoseLandmarkerResult, drawingUtils: DrawingUtils | null, canvas: HTMLCanvasElement) {
