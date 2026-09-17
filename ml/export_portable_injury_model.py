@@ -39,6 +39,7 @@ def build_portable_artifact(
     source_label: str,
     source_url: str | None,
     model_version: str,
+    training_data_type: str = "prospective-human",
 ) -> dict[str, Any]:
     features = [str(feature) for feature in bundle["features"]]
     model = bundle.get("portableLogisticModel")
@@ -79,8 +80,12 @@ def build_portable_artifact(
     validation = research_artifact["validation"]
     deployment = research_artifact["deploymentGate"]
     internal_gate = deployment.get("internalEngineeringGate", {})
+    if training_data_type not in {"prospective-human", "synthetic-development-fixture"}:
+        raise ValueError("training_data_type must be prospective-human or synthetic-development-fixture")
+
     eligible_research = bool(
-        internal_gate.get("passed")
+        training_data_type == "prospective-human"
+        and internal_gate.get("passed")
         and validation.get("splitUnit") == "participant"
         and validation.get("nestedEvaluation")
         and validation.get("featureTimingAudited")
@@ -92,7 +97,7 @@ def build_portable_artifact(
     return {
         "schemaVersion": "1.0.0",
         "modelType": "portable-logistic-prospective-injury-risk",
-        "trainingDataType": "prospective-human",
+        "trainingDataType": training_data_type,
         "clinicalClaim": "research-risk-estimation-only",
         "modelName": "MovementScienceLab transparent multimodal prospective injury model",
         "modelVersion": model_version,
@@ -161,6 +166,11 @@ def main() -> None:
     parser.add_argument("--source-label", required=True)
     parser.add_argument("--source-url", default=None)
     parser.add_argument("--model-version", default=None)
+    parser.add_argument(
+        "--training-data-type",
+        choices=["prospective-human", "synthetic-development-fixture"],
+        default="prospective-human",
+    )
     args = parser.parse_args()
 
     bundle = joblib.load(args.input_model)
@@ -172,6 +182,7 @@ def main() -> None:
         source_label=args.source_label,
         source_url=args.source_url,
         model_version=version,
+        training_data_type=args.training_data_type,
     )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(
