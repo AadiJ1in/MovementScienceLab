@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { analyzeImageQuality } from "./image-quality";
 
-function image(width: number, height: number, pixel: (x: number, y: number) => [number, number, number, number]) {
+function image(
+  width: number,
+  height: number,
+  pixel: (x: number, y: number) => [number, number, number, number],
+) {
   const data = new Uint8ClampedArray(width * height * 4);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -9,7 +13,7 @@ function image(width: number, height: number, pixel: (x: number, y: number) => [
       data.set(pixel(x, y), base);
     }
   }
-  return new ImageData(data, width, height);
+  return { width, height, data };
 }
 
 describe("image quality analysis", () => {
