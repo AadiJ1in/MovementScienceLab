@@ -65,6 +65,12 @@ FEATURE_DOMAINS: dict[str, tuple[str, ...]] = {
         "right_sls_robust_peak_knee_deg",
         "sls_rep_variability_deg",
         "sls_robust_trunk_lean_deg",
+        "camera_knee_flexion_asymmetry_deg",
+        "camera_peak_knee_frontal_deviation_deg",
+        "camera_peak_trunk_lean_deg",
+        "camera_peak_pelvic_obliquity_deg",
+        "camera_rep_excursion_variability_deg",
+        "camera_rep_duration_cv_pct",
         "mean_pose_confidence",
     ),
     "longitudinal_change": (
