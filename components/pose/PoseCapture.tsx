@@ -111,6 +111,8 @@ export function PoseCapture({
     }
 
     let cancelled = false;
+    const sessionVideo = videoRef.current;
+    const sessionCanvas = canvasRef.current;
 
     async function initialize() {
       try {
@@ -293,12 +295,12 @@ export function PoseCapture({
       }
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (sessionVideo) sessionVideo.srcObject = null;
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
-      const context = canvasRef.current?.getContext("2d");
-      if (context && canvasRef.current) {
-        context.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      const context = sessionCanvas?.getContext("2d");
+      if (context && sessionCanvas) {
+        context.clearRect(0, 0, sessionCanvas.width, sessionCanvas.height);
       }
     };
   }, [captureEnabled]);
