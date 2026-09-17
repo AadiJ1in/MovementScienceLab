@@ -25,6 +25,7 @@ export type PortableInjuryRiskModelArtifact = {
     population: string;
   };
   cameraMeasurementVersion: string;
+  decisionThreshold: number;
   features: string[];
   featureDomains: Record<string, InjuryRiskFeatureDomain>;
   preprocessing: {
@@ -150,6 +151,9 @@ export function assertPortableInjuryRiskArtifact(
     }
   });
 
+  if (!Number.isFinite(artifact.decisionThreshold) || artifact.decisionThreshold < 0 || artifact.decisionThreshold > 1) {
+    throw new Error("Injury-risk artifact decisionThreshold must be between 0 and 1.");
+  }
   if (artifact.deploymentGate.eligibleForUserFacingInjuryProbability !== false) {
     throw new Error("Research injury-risk artifacts cannot enable clinical injury probability.");
   }
@@ -247,9 +251,11 @@ export function inferPortableInjuryRisk(
     outputKind,
     calibratedScore,
     rawScore,
-    threshold: 0.5,
+    threshold: artifact.decisionThreshold,
     thresholdLabel:
-      calibratedScore >= 0.5 ? "above-model-threshold" : "below-model-threshold",
+      calibratedScore >= artifact.decisionThreshold
+        ? "above-model-threshold"
+        : "below-model-threshold",
     featureCoverage: observed / artifact.features.length,
     observedFeatureCount: observed,
     totalFeatureCount: artifact.features.length,
