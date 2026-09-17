@@ -7,6 +7,11 @@ import { buildCalibrationChecks, calibrationPassed } from "@/lib/assessment/cali
 import { MOVEMENT_DEFINITIONS, getMovementDefinition, statusLabel } from "@/lib/assessment/movement-definitions";
 import type { AngleName, AngleReading } from "@/lib/biomechanics/angles";
 import { computeAnglesForMovement } from "@/lib/biomechanics/measurement-profile";
+import {
+  getMeasurementValidationEntry,
+  measurementUncertaintyLabel,
+  patientMeasurementStatusLabel,
+} from "@/lib/biomechanics/measurement-validation";
 import { DEFAULT_KNEE_REP_CONFIG, RepSegmenter, type RepSummary } from "@/lib/biomechanics/rep-segmentation";
 import type { MovementType, PoseFrame } from "@/lib/pose/types";
 
@@ -43,7 +48,14 @@ export function GuidedAssessment() {
   const recordingRef = useRef(false);
 
   const definition = getMovementDefinition(movement);
-  const calibrationChecks = useMemo(() => buildCalibrationChecks(frame, movement), [frame, movement]);
+  const calibrationChecks = useMemo(
+    () =>
+      buildCalibrationChecks(frame, movement, {
+        imageQuality: telemetry?.imageQuality ?? null,
+        cameraStable: telemetry?.cameraStable ?? null,
+      }),
+    [frame, movement, telemetry?.imageQuality, telemetry?.cameraStable],
+  );
   const isCalibrated = captureReady && calibrationPassed(calibrationChecks);
 
   function beginRecording() {
@@ -212,16 +224,27 @@ export function GuidedAssessment() {
           {step === 3 && (
             <div className="grid gap-4 rounded-[1.75rem] bg-white p-5 shadow-sm ring-1 ring-zinc-200 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
-                <p className="font-semibold text-zinc-950">Calibration checklist</p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-zinc-950">Calibration checklist</p>
+                    <p className="mt-1 text-xs leading-5 text-zinc-500">Capture only begins when blocking geometry and measured image-quality gates pass.</p>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isCalibrated ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"}`}>{isCalibrated ? "Ready" : "Not ready"}</span>
+                </div>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                  {calibrationChecks.map((check) => (
-                    <div key={check.id} className="flex items-center gap-2 text-sm text-zinc-700">
-                      <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${check.passed ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-400"}`}>{check.passed ? "✓" : "–"}</span>
-                      <span>{check.label}</span><span className="sr-only">{check.passed ? "passed" : "not yet passed"}</span>
+                  {calibrationChecks.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-zinc-200 p-3 text-sm text-zinc-700">
+                      <div className="flex items-center gap-2">
+                        <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${item.status === "pass" ? "bg-emerald-100 text-emerald-700" : item.status === "fail" ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-500"}`}>{item.status === "pass" ? "✓" : item.status === "fail" ? "×" : "?"}</span>
+                        <span className="font-medium">{item.label}</span>
+                        {!item.blocking && <span className="ml-auto text-[10px] uppercase tracking-wide text-zinc-400">Advisory</span>}
+                      </div>
+                      {item.detail && <p className="mt-1 pl-7 text-[11px] leading-4 text-zinc-500">{item.detail}</p>}
+                      <span className="sr-only">{item.status === "pass" ? "passed" : item.status === "fail" ? "failed" : "unavailable"}</span>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-xs leading-5 text-zinc-500">These are capture-quality checks based on landmark visibility and framing. They are not clinical measurements.</p>
+                <p className="mt-4 text-xs leading-5 text-zinc-500">Tracking confidence, lighting, blur, and framing are capture-quality checks. They are not measurement-accuracy estimates. Empirical measurement error is reported separately only when reference-validation data exist.</p>
               </div>
               <button type="button" disabled={!isCalibrated || countdown !== null} onClick={beginCountdown} className="rounded-xl bg-sky-700 px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300">{countdown !== null ? `Starting in ${countdown}…` : "Begin assessment"}</button>
             </div>
@@ -229,7 +252,7 @@ export function GuidedAssessment() {
 
           {step === 4 && (
             <div className="flex flex-col gap-4 rounded-[1.75rem] bg-zinc-950 p-5 text-white shadow-xl sm:flex-row sm:items-center sm:justify-between">
-              <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Recording</p><p className="mt-1 text-lg font-semibold">Move naturally through the assessment.</p><p className="mt-1 text-sm text-white/65">{captureReady ? "Capture quality is currently usable." : "Tracking quality dropped. Reposition before continuing."}</p></div>
+              <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Recording</p><p className="mt-1 text-lg font-semibold">Move naturally through the assessment.</p><p className="mt-1 text-sm text-white/65">{captureReady ? "Pose capture is currently usable." : "Tracking quality dropped. Reposition before continuing."}</p></div>
               <button type="button" onClick={stopRecording} className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-zinc-950">Finish assessment</button>
             </div>
           )}
@@ -253,13 +276,16 @@ function ResultsScreen({ movement, readings, reps, telemetry, selectedRep, onSel
   const definition = getMovementDefinition(movement);
   const primary = readings.filter((item) => item.angleName === definition.primaryMetric);
   const values = primary.map((item) => item.value);
-  const confidence = primary.length ? primary.reduce((sum, item) => sum + item.confidence, 0) / primary.length : null;
+  const trackingConfidence = primary.length ? primary.reduce((sum, item) => sum + item.confidence, 0) / primary.length : null;
   const range = values.length ? Math.max(...values) - Math.min(...values) : null;
   const mean = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   const variability = values.length && mean !== null ? Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length) : null;
   const averageRepDuration = reps.length ? reps.reduce((sum, rep) => sum + (rep.endedMs - rep.startedMs), 0) / reps.length : null;
   const selected = reps.find((rep) => rep.repIndex === selectedRep) ?? null;
   const selectedTrajectory = selected ? primary.filter((item) => item.frameTimestamp >= selected.startedMs && item.frameTimestamp <= selected.endedMs) : [];
+  const validation = getMeasurementValidationEntry(definition.primaryMetric);
+  const patientStatus = patientMeasurementStatusLabel(definition.primaryMetric);
+  const empiricalUncertainty = measurementUncertaintyLabel(definition.primaryMetric);
 
   return (
     <section className="mx-auto max-w-6xl py-8 sm:py-12">
@@ -268,11 +294,17 @@ function ResultsScreen({ movement, readings, reps, telemetry, selectedRep, onSel
         <button type="button" onClick={onRestart} className="rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white">New assessment</button>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`mt-6 rounded-2xl border p-4 text-sm ${patientStatus === "Validated measurement" ? "border-emerald-200 bg-emerald-50 text-emerald-950" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
+        <p className="font-semibold">{patientStatus}</p>
+        <p className="mt-1 leading-6">{validation.label} is currently classified as <span className="font-medium">{validation.status.replaceAll("-", " ")}</span>. {empiricalUncertainty ? `Estimated empirical measurement error: ${empiricalUncertainty}.` : "Reference-system measurement error has not yet been established for this browser metric."}</p>
+      </div>
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <SummaryMetric label="Completed repetitions" value={definition.repCounting === "side-knee-cycle" ? String(reps.length) : "Not enabled"} note={definition.repCounting === "side-knee-cycle" ? "Engineering detector enabled for this capture mode" : "Rep detector not yet validated for this movement"} />
         <SummaryMetric label="Measured range" value={range === null ? "—" : `${range.toFixed(1)}°`} note={ANGLE_LABELS[definition.primaryMetric]} />
         <SummaryMetric label="Measurement variability" value={variability === null ? "—" : `${variability.toFixed(1)}°`} note="Standard deviation across captured samples" />
-        <SummaryMetric label="Movement confidence" value={confidence === null ? "—" : confidence >= 0.85 ? "High" : confidence >= 0.7 ? "Moderate" : "Low"} note={confidence === null ? "No usable samples" : `Mean landmark-derived confidence ${(confidence * 100).toFixed(0)}%`} />
+        <SummaryMetric label="Tracking quality" value={trackingConfidence === null ? "—" : trackingConfidence >= 0.85 ? "High" : trackingConfidence >= 0.7 ? "Moderate" : "Low"} note={trackingConfidence === null ? "No usable samples" : `Mean landmark tracking confidence ${(trackingConfidence * 100).toFixed(0)}%; not measurement accuracy`} />
+        <SummaryMetric label="Estimated measurement error" value={empiricalUncertainty ?? "Not established"} note={empiricalUncertainty ? "Derived from empirical reference validation" : "Not inferred from pose confidence"} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -282,7 +314,7 @@ function ResultsScreen({ movement, readings, reps, telemetry, selectedRep, onSel
           {selected && <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-zinc-100 pt-4 text-sm"><MetricCell label="Excursion" value={`${selected.excursionDegrees.toFixed(1)}°`} /><MetricCell label="Peak" value={`${selected.peakValue.toFixed(1)}°`} /><MetricCell label="Duration" value={`${((selected.endedMs - selected.startedMs) / 1000).toFixed(2)} s`} /></dl>}
         </div>
         <div className="space-y-4">
-          <div className="rounded-[1.75rem] bg-zinc-950 p-5 text-white"><p className="text-sm font-semibold">Capture quality</p><dl className="mt-4 space-y-3 text-sm"><Row label="Resolution" value={telemetry?.width && telemetry.height ? `${telemetry.width}×${telemetry.height}` : "Unavailable"} /><Row label="Camera FPS" value={telemetry?.cameraFps ? telemetry.cameraFps.toFixed(1) : "Unavailable"} /><Row label="Pose FPS" value={telemetry?.inferenceFps ? telemetry.inferenceFps.toFixed(1) : "Unavailable"} /><Row label="Runtime" value={telemetry?.delegate ?? "Unavailable"} /></dl></div>
+          <div className="rounded-[1.75rem] bg-zinc-950 p-5 text-white"><p className="text-sm font-semibold">Capture quality</p><dl className="mt-4 space-y-3 text-sm"><Row label="Resolution" value={telemetry?.width && telemetry.height ? `${telemetry.width}×${telemetry.height}` : "Unavailable"} /><Row label="Camera FPS" value={telemetry?.cameraFps ? telemetry.cameraFps.toFixed(1) : "Unavailable"} /><Row label="Pose FPS" value={telemetry?.inferenceFps ? telemetry.inferenceFps.toFixed(1) : "Unavailable"} /><Row label="Lighting" value={telemetry?.imageQuality ? telemetry.imageQuality.lightingAcceptable ? "Acceptable" : "Outside preferred range" : "Unavailable"} /><Row label="Sharpness" value={telemetry?.imageQuality ? telemetry.imageQuality.blurAcceptable ? "Acceptable" : "Low" : "Unavailable"} /><Row label="Runtime" value={telemetry?.delegate ?? "Unavailable"} /></dl><p className="mt-4 text-[11px] leading-5 text-white/50">Capture quality describes tracking conditions. It is not the same as measurement error.</p></div>
           {averageRepDuration !== null && <div className="rounded-[1.75rem] bg-sky-50 p-5 text-sm text-sky-950"><p className="font-semibold">Rep timing</p><p className="mt-2 leading-6">Average detected rep duration was {(averageRepDuration / 1000).toFixed(2)} seconds.</p></div>}
         </div>
       </div>
