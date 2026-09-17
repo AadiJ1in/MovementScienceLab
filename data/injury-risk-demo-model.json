@@ -50,13 +50,85 @@
     "camera_rep_duration_cv_pct": "camera_biomechanics"
   },
   "preprocessing": {
-    "medians": [1, 180, 2, 3, 7, 7, 240, 1000, 1200, 5000, 3, 4, 8, 12, 3, 3, 12],
-    "means": [1, 220, 2.5, 3.5, 7, 7, 260, 1050, 1300, 5200, 3.5, 4, 8, 12, 3, 3, 12],
-    "scales": [1, 180, 2.5, 2.5, 2, 2, 140, 400, 800, 2200, 3, 4, 6, 8, 3, 2.5, 8]
+    "medians": [
+      1,
+      180,
+      2,
+      3,
+      7,
+      7,
+      240,
+      1000,
+      1200,
+      5000,
+      3,
+      4,
+      8,
+      12,
+      3,
+      3,
+      12
+    ],
+    "means": [
+      1,
+      220,
+      2.5,
+      3.5,
+      7,
+      7,
+      260,
+      1050,
+      1300,
+      5200,
+      3.5,
+      4,
+      8,
+      12,
+      3,
+      3,
+      12
+    ],
+    "scales": [
+      1,
+      180,
+      2.5,
+      2.5,
+      2,
+      2,
+      140,
+      400,
+      800,
+      2200,
+      3,
+      4,
+      6,
+      8,
+      3,
+      2.5,
+      8
+    ]
   },
   "model": {
     "intercept": -0.55,
-    "coefficients": [0.55, -0.28, 0.48, 0.36, -0.24, -0.32, 0.34, -0.18, 0.38, -0.16, 0.24, 0.22, 0.26, 0.2, 0.16, 0.18, 0.2]
+    "coefficients": [
+      0.55,
+      -0.28,
+      0.48,
+      0.36,
+      -0.24,
+      -0.32,
+      0.34,
+      -0.18,
+      0.38,
+      -0.16,
+      0.24,
+      0.22,
+      0.26,
+      0.2,
+      0.16,
+      0.18,
+      0.2
+    ]
   },
   "calibration": {
     "method": "platt-logistic",
@@ -88,5 +160,6 @@
     "sourceLabel": "Synthetic engineering fixture",
     "sourceUrl": null,
     "note": "Hand-authored deterministic parameters used only to test and demonstrate the complete feature-to-inference UI path. This artifact was not fit to patient or athlete injury outcomes."
-  }
+  },
+  "decisionThreshold": 0.5
 }
