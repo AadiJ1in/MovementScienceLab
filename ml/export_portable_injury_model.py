@@ -102,6 +102,7 @@ def build_portable_artifact(
             "population": research_artifact["population"],
         },
         "cameraMeasurementVersion": research_artifact["cameraMeasurementVersion"],
+        "decisionThreshold": threshold,
         "features": features,
         "featureDomains": _feature_domain_map(features),
         "preprocessing": {
@@ -147,7 +148,6 @@ def build_portable_artifact(
                 "Eligibility for a research estimate does not imply clinical validation or permission to display a clinical injury probability."
             ),
         },
-        "researchModelThreshold": threshold,
     }
 
 
