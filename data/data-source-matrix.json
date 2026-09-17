@@ -752,6 +752,27 @@
         "mean_pose_confidence",
         "min_pose_confidence"
       ]
+    },
+    {
+      "id": "prospective-validation-record",
+      "layer": "research-data-collection",
+      "granularity": "prediction-index-and-future-outcome",
+      "fields": [
+        "participant_id",
+        "index_time",
+        "feature_cutoff_time",
+        "outcome_window_end",
+        "feature_snapshot",
+        "camera_measurement_version",
+        "model_version",
+        "injury_within_horizon",
+        "injury_event_time",
+        "outcome_event_id",
+        "outcome_name",
+        "case_definition",
+        "adjudication_method"
+      ],
+      "note": "Immutable prediction-time feature snapshot linked later to separately adjudicated future outcomes. Designed for prospective validation; not a clinical claim by itself."
     }
   ],
   "evidenceSources": [
@@ -930,6 +951,44 @@
         "measurement_definition_version",
         "created_at",
         "updated_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "prospective_risk_assessments",
+      "fields": [
+        "id",
+        "user_id",
+        "movement_session_id",
+        "protocol_id",
+        "protocol_version",
+        "index_time",
+        "feature_cutoff_time",
+        "outcome_window_end",
+        "horizon_days",
+        "feature_snapshot",
+        "camera_measurement_version",
+        "model_version",
+        "output_kind",
+        "research_score",
+        "source_model_sha256",
+        "created_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "prospective_injury_outcomes",
+      "fields": [
+        "id",
+        "assessment_id",
+        "injury_within_horizon",
+        "injury_event_time",
+        "outcome_event_id",
+        "outcome_name",
+        "case_definition",
+        "adjudication_method",
+        "adjudicated_by",
+        "recorded_at"
       ],
       "containsPatientData": true
     }
