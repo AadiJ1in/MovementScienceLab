@@ -65,6 +65,12 @@ FEATURE_DOMAINS: dict[str, tuple[str, ...]] = {
         "right_sls_robust_peak_knee_deg",
         "sls_rep_variability_deg",
         "sls_robust_trunk_lean_deg",
+        "camera_knee_flexion_asymmetry_deg",
+        "camera_peak_knee_frontal_deviation_deg",
+        "camera_peak_trunk_lean_deg",
+        "camera_peak_pelvic_obliquity_deg",
+        "camera_rep_excursion_variability_deg",
+        "camera_rep_duration_cv_pct",
         "mean_pose_confidence",
     ),
     "longitudinal_change": (
@@ -572,6 +578,38 @@ def _final_research_model(
     )
 
 
+def _final_portable_logistic(
+    X: pd.DataFrame,
+    y: np.ndarray,
+    groups: np.ndarray,
+    features: list[str],
+) -> tuple[Pipeline, LogisticRegression, float, dict[str, object]]:
+    """Fit the transparent browser-deployable research candidate.
+
+    The portable candidate is always logistic regression so its exact fitted
+    preprocessing and coefficients can be exported to TypeScript/JSON. Its
+    grouped out-of-fold metrics are reported separately from the nested champion
+    model and are never substituted for the nested benchmark performance.
+    """
+    model = candidate_models(features)["logistic_regression"]
+    splits = _valid_group_splits(X, y, groups)
+    raw = cross_val_predict(
+        model,
+        X,
+        y,
+        groups=groups,
+        cv=splits,
+        method="predict_proba",
+        n_jobs=1,
+    )[:, 1]
+    calibrator = fit_calibrator(raw, y)
+    calibrated = apply_calibrator(calibrator, raw)
+    threshold = choose_threshold(y, calibrated)
+    development_metrics = metrics(y, calibrated, threshold=threshold)
+    model.fit(X, y)
+    return model, calibrator, threshold, development_metrics
+
+
 def benchmark(
     input_csv: Path,
     output_json: Path,
@@ -613,6 +651,9 @@ def benchmark(
     champion_name, final_model, final_calibrator, final_threshold, final_candidates = _final_research_model(
         X, y, groups, features
     )
+    portable_model, portable_calibrator, portable_threshold, portable_metrics = _final_portable_logistic(
+        X, y, groups, features
+    )
 
     participant_outcomes = df.groupby(GROUP)[TARGET].max().astype(int)
     n_positive_participants = int(participant_outcomes.sum())
@@ -622,6 +663,10 @@ def benchmark(
             "model": final_model,
             "calibrator": final_calibrator,
             "threshold": final_threshold,
+            "portableLogisticModel": portable_model,
+            "portableLogisticCalibrator": portable_calibrator,
+            "portableLogisticThreshold": portable_threshold,
+            "portableLogisticDevelopmentMetrics": portable_metrics,
             "features": features,
             "target": TARGET,
             "participantGroupColumn": GROUP,
@@ -651,6 +696,16 @@ def benchmark(
             "threshold": final_threshold,
             "candidateDevelopmentMetrics": final_candidates,
             "note": "Fitted on all available data only after nested evaluation. Not used to claim internal test performance.",
+        },
+        "portableResearchModel": {
+            "modelFamily": "logistic_regression",
+            "threshold": portable_threshold,
+            "groupedDevelopmentMetrics": portable_metrics,
+            "browserExportSupported": True,
+            "note": (
+                "Transparent secondary logistic candidate fitted for browser export. "
+                "Its grouped development metrics are not a replacement for the nested champion evaluation."
+            ),
         },
         "validation": {
             "splitUnit": "participant",
