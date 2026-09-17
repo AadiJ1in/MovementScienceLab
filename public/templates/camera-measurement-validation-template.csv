@@ -1,0 +1,2 @@
+participant_id,session_id,metric_name,side,webcam_value,reference_value,camera_measurement_version,device_model,resolution,camera_distance,distance_bin,capture_condition,view,lighting_condition,clothing_occlusion_condition
+P001,S01,leftKneeFlexion,left,,,browser-2d-angle-v1,,,,standardized,side,standard,unoccluded
