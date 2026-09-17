@@ -1,6 +1,6 @@
 {
   "schemaVersion": "2.0.0",
-  "lastReviewed": "2026-09-15",
+  "lastReviewed": "2026-09-17",
   "purpose": "Canonical machine-readable provenance matrix for every active external dataset, video source class, live capture stream, derived measurement layer, research feature domain, evidence source, and persisted application table used by MovementScienceLab.",
   "policy": {
     "rawPatientVideoPersisted": false,
@@ -22,13 +22,29 @@
       "primarySource": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/",
       "dataSource": "https://webpages.uidaho.edu/ui-prmd/",
       "subjects": 10,
-      "modalities": ["Kinect skeleton", "Vicon joint positions", "Vicon joint angles"],
-      "labels": ["correct execution", "non-optimal execution protocol"],
-      "bestUse": ["movement-quality classification", "feature validation", "label taxonomy"],
-      "notValidFor": ["direct future-injury probability"],
+      "modalities": [
+        "Kinect skeleton",
+        "Vicon joint positions",
+        "Vicon joint angles"
+      ],
+      "labels": [
+        "correct execution",
+        "non-optimal execution protocol"
+      ],
+      "bestUse": [
+        "movement-quality classification",
+        "feature validation",
+        "label taxonomy"
+      ],
+      "notValidFor": [
+        "direct future-injury probability"
+      ],
       "licenseStatus": "verify official dataset terms before redistribution",
       "trustTier": "research-benchmark",
-      "codeAdapters": ["docs/dataset-registry.json", "docs/evidence-registry.json"]
+      "codeAdapters": [
+        "docs/dataset-registry.json",
+        "docs/evidence-registry.json"
+      ]
     },
     {
       "id": "kimore",
@@ -38,13 +54,27 @@
       "primarySource": "https://pubmed.ncbi.nlm.nih.gov/31217121/",
       "dataSource": "https://drive.google.com/drive/folders/1b1anGzSytePiCUyoz8AlGMV2G54e_ZeC?usp=share_link",
       "subjects": 78,
-      "modalities": ["RGB-D video", "Kinect skeleton", "clinician questionnaire scores"],
-      "labels": ["clinician-scored movement quality"],
-      "bestUse": ["movement-quality regression", "clinical-domain validation"],
-      "notValidFor": ["direct future-injury probability"],
+      "modalities": [
+        "RGB-D video",
+        "Kinect skeleton",
+        "clinician questionnaire scores"
+      ],
+      "labels": [
+        "clinician-scored movement quality"
+      ],
+      "bestUse": [
+        "movement-quality regression",
+        "clinical-domain validation"
+      ],
+      "notValidFor": [
+        "direct future-injury probability"
+      ],
       "licenseStatus": "free research dataset; verify official redistribution terms before bundling",
       "trustTier": "clinician-scored-research-benchmark",
-      "codeAdapters": ["docs/dataset-registry.json", "docs/evidence-registry.json"]
+      "codeAdapters": [
+        "docs/dataset-registry.json",
+        "docs/evidence-registry.json"
+      ]
     },
     {
       "id": "execheck",
@@ -54,13 +84,28 @@
       "primarySource": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
       "dataSource": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
       "subjects": 7,
-      "modalities": ["RGB-D video", "Azure Kinect skeleton positions", "Azure Kinect skeleton orientations"],
-      "labels": ["paired correct form", "paired incorrect form"],
-      "bestUse": ["rehabilitation deviation classification", "error localization research"],
-      "notValidFor": ["future-injury probability"],
+      "modalities": [
+        "RGB-D video",
+        "Azure Kinect skeleton positions",
+        "Azure Kinect skeleton orientations"
+      ],
+      "labels": [
+        "paired correct form",
+        "paired incorrect form"
+      ],
+      "bestUse": [
+        "rehabilitation deviation classification",
+        "error localization research"
+      ],
+      "notValidFor": [
+        "future-injury probability"
+      ],
       "licenseStatus": "verify dataset-specific terms before redistribution",
       "trustTier": "research-benchmark-small-cohort",
-      "codeAdapters": ["docs/dataset-registry.json", "docs/evidence-registry.json"]
+      "codeAdapters": [
+        "docs/dataset-registry.json",
+        "docs/evidence-registry.json"
+      ]
     },
     {
       "id": "soccermon",
@@ -70,13 +115,32 @@
       "primarySource": "https://doi.org/10.1038/s41597-024-03386-x",
       "dataSource": "https://zenodo.org/records/10033832",
       "subjects": 50,
-      "modalities": ["daily training load", "daily readiness", "daily sleep quality", "daily soreness", "timestamped injury records"],
-      "labels": ["prospective recorded injury events"],
-      "bestUse": ["non-camera prospective reference cohort", "timing/leakage audit", "site transport stress testing"],
-      "notValidFor": ["webcam measurement validation", "camera incremental value on a different cohort", "standalone clinical deployment"],
+      "modalities": [
+        "daily training load",
+        "daily readiness",
+        "daily sleep quality",
+        "daily soreness",
+        "timestamped injury records"
+      ],
+      "labels": [
+        "prospective recorded injury events"
+      ],
+      "bestUse": [
+        "non-camera prospective reference cohort",
+        "timing/leakage audit",
+        "site transport stress testing"
+      ],
+      "notValidFor": [
+        "webcam measurement validation",
+        "camera incremental value on a different cohort",
+        "standalone clinical deployment"
+      ],
       "licenseStatus": "CC BY 4.0",
       "trustTier": "prospective-reference-dataset",
-      "codeAdapters": ["ml/soccermon_reference.py", ".github/workflows/soccermon-cohort-audit.yml"]
+      "codeAdapters": [
+        "ml/soccermon_reference.py",
+        ".github/workflows/soccermon-cohort-audit.yml"
+      ]
     },
     {
       "id": "licensed-public-video-augmentation",
@@ -86,13 +150,27 @@
       "primarySource": null,
       "dataSource": null,
       "subjects": null,
-      "modalities": ["RGB video converted to MediaPipe landmarks"],
-      "labels": ["must be independently annotated by qualified reviewers"],
-      "bestUse": ["camera diversity", "lighting diversity", "viewpoint robustness", "occlusion robustness"],
-      "notValidFor": ["titles/descriptions as medical labels", "injury outcome ground truth"],
+      "modalities": [
+        "RGB video converted to MediaPipe landmarks"
+      ],
+      "labels": [
+        "must be independently annotated by qualified reviewers"
+      ],
+      "bestUse": [
+        "camera diversity",
+        "lighting diversity",
+        "viewpoint robustness",
+        "occlusion robustness"
+      ],
+      "notValidFor": [
+        "titles/descriptions as medical labels",
+        "injury outcome ground truth"
+      ],
       "licenseStatus": "only use videos whose terms permit the intended training use",
       "trustTier": "augmentation-only",
-      "codeAdapters": ["docs/dataset-registry.json"]
+      "codeAdapters": [
+        "docs/dataset-registry.json"
+      ]
     },
     {
       "id": "mediapipe-live-webcam",
@@ -102,13 +180,29 @@
       "primarySource": "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker",
       "dataSource": "browser getUserMedia",
       "subjects": null,
-      "modalities": ["live RGB frames", "33 normalized landmarks", "33 model-relative world landmarks", "visibility", "inference telemetry"],
+      "modalities": [
+        "live RGB frames",
+        "33 normalized landmarks",
+        "33 model-relative world landmarks",
+        "visibility",
+        "inference telemetry"
+      ],
       "labels": [],
-      "bestUse": ["live movement measurement", "same-domain webcam validation"],
-      "notValidFor": ["calibrated laboratory 3D", "kinetics", "automatic diagnosis"],
+      "bestUse": [
+        "live movement measurement",
+        "same-domain webcam validation"
+      ],
+      "notValidFor": [
+        "calibrated laboratory 3D",
+        "kinetics",
+        "automatic diagnosis"
+      ],
       "licenseStatus": "runtime dependency; camera data remains browser-local in the current capture workspace",
       "trustTier": "runtime-measurement-source",
-      "codeAdapters": ["components/pose/StageOneCapture.tsx", "lib/pose/stream.ts"]
+      "codeAdapters": [
+        "components/pose/StageOneCapture.tsx",
+        "lib/pose/stream.ts"
+      ]
     },
     {
       "id": "stage3-reviewed-protocol",
@@ -118,13 +212,30 @@
       "primarySource": null,
       "dataSource": "reviewed JSON supplied by the deployment/research team",
       "subjects": null,
-      "modalities": ["threshold rules", "source provenance", "reviewer provenance"],
-      "labels": ["info", "caution", "high"],
-      "bestUse": ["review queue threshold indicators"],
-      "notValidFor": ["injury probability", "diagnosis", "automatic treatment modification"],
+      "modalities": [
+        "threshold rules",
+        "source provenance",
+        "reviewer provenance"
+      ],
+      "labels": [
+        "info",
+        "caution",
+        "high"
+      ],
+      "bestUse": [
+        "review queue threshold indicators"
+      ],
+      "notValidFor": [
+        "injury probability",
+        "diagnosis",
+        "automatic treatment modification"
+      ],
       "licenseStatus": "inherits source protocol terms",
       "trustTier": "reviewed-protocol-only",
-      "codeAdapters": ["lib/biomechanics/stage-three-review.ts", "components/pose/StageThreeReviewPanel.tsx"]
+      "codeAdapters": [
+        "lib/biomechanics/stage-three-review.ts",
+        "components/pose/StageThreeReviewPanel.tsx"
+      ]
     }
   ],
   "pendingSources": [
@@ -165,7 +276,12 @@
       "rawVideoInRepository": false,
       "rawVideoPersisted": false,
       "processing": "client-side pose inference",
-      "derivedData": ["pose-frame-v1.1", "normalized-pose-landmarks", "world-pose-landmarks", "pose-inference-telemetry"]
+      "derivedData": [
+        "pose-frame-v1.1",
+        "normalized-pose-landmarks",
+        "world-pose-landmarks",
+        "pose-inference-telemetry"
+      ]
     },
     {
       "id": "kimore-rgbd-video",
@@ -174,7 +290,11 @@
       "rawVideoInRepository": false,
       "rawVideoPersisted": false,
       "processing": "external dataset; ingest only after license/provenance review",
-      "derivedData": ["external-video-frame", "external-skeleton-landmarks", "clinician-quality-score"]
+      "derivedData": [
+        "external-video-frame",
+        "external-skeleton-landmarks",
+        "clinician-quality-score"
+      ]
     },
     {
       "id": "execheck-rgbd-video",
@@ -183,7 +303,11 @@
       "rawVideoInRepository": false,
       "rawVideoPersisted": false,
       "processing": "external dataset; ingest only after license/provenance review",
-      "derivedData": ["external-video-frame", "external-skeleton-landmarks", "paired-form-label"]
+      "derivedData": [
+        "external-video-frame",
+        "external-skeleton-landmarks",
+        "paired-form-label"
+      ]
     },
     {
       "id": "licensed-public-video-augmentation",
@@ -192,7 +316,11 @@
       "rawVideoInRepository": false,
       "rawVideoPersisted": false,
       "processing": "only explicitly licensed videos; convert to MediaPipe landmarks; independent annotation required",
-      "derivedData": ["external-video-frame", "normalized-pose-landmarks", "expert-annotation"]
+      "derivedData": [
+        "external-video-frame",
+        "normalized-pose-landmarks",
+        "expert-annotation"
+      ]
     }
   ],
   "dataPieces": [
@@ -200,16 +328,85 @@
       "id": "pose-frame-v1.1",
       "layer": "stage-1",
       "granularity": "frame",
-      "fields": ["schemaVersion", "sequence", "timestampMs", "timestampSource", "capturedAtIso", "mediaTimeMs", "frameClock", "image.width", "image.height", "image.mirrored", "pose.detected", "pose.landmarkCount", "pose.trustedLandmarkCount", "pose.trustedFraction", "pose.meanVisibility", "processing.delegate", "processing.cameraFps", "processing.inferenceFps", "processing.averageInferenceLatencyMs", "processing.inferenceLatencyMs"],
-      "units": {"timestampMs": "ms", "mediaTimeMs": "ms", "cameraFps": "fps", "inferenceFps": "fps", "latency": "ms"},
+      "fields": [
+        "schemaVersion",
+        "sequence",
+        "timestampMs",
+        "timestampSource",
+        "capturedAtIso",
+        "mediaTimeMs",
+        "frameClock",
+        "image.width",
+        "image.height",
+        "image.mirrored",
+        "pose.detected",
+        "pose.landmarkCount",
+        "pose.trustedLandmarkCount",
+        "pose.trustedFraction",
+        "pose.meanVisibility",
+        "processing.delegate",
+        "processing.cameraFps",
+        "processing.inferenceFps",
+        "processing.averageInferenceLatencyMs",
+        "processing.inferenceLatencyMs"
+      ],
+      "units": {
+        "timestampMs": "ms",
+        "mediaTimeMs": "ms",
+        "cameraFps": "fps",
+        "inferenceFps": "fps",
+        "latency": "ms"
+      },
       "persistedByDefault": false
     },
     {
       "id": "normalized-pose-landmarks",
       "layer": "stage-1",
       "granularity": "landmark-per-frame",
-      "fields": ["index", "name", "x", "y", "z", "visibility", "trusted"],
-      "landmarkNames": ["nose", "left_eye_inner", "left_eye", "left_eye_outer", "right_eye_inner", "right_eye", "right_eye_outer", "left_ear", "right_ear", "mouth_left", "mouth_right", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_pinky", "right_pinky", "left_index", "right_index", "left_thumb", "right_thumb", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle", "left_heel", "right_heel", "left_foot_index", "right_foot_index"],
+      "fields": [
+        "index",
+        "name",
+        "x",
+        "y",
+        "z",
+        "visibility",
+        "trusted"
+      ],
+      "landmarkNames": [
+        "nose",
+        "left_eye_inner",
+        "left_eye",
+        "left_eye_outer",
+        "right_eye_inner",
+        "right_eye",
+        "right_eye_outer",
+        "left_ear",
+        "right_ear",
+        "mouth_left",
+        "mouth_right",
+        "left_shoulder",
+        "right_shoulder",
+        "left_elbow",
+        "right_elbow",
+        "left_wrist",
+        "right_wrist",
+        "left_pinky",
+        "right_pinky",
+        "left_index",
+        "right_index",
+        "left_thumb",
+        "right_thumb",
+        "left_hip",
+        "right_hip",
+        "left_knee",
+        "right_knee",
+        "left_ankle",
+        "right_ankle",
+        "left_heel",
+        "right_heel",
+        "left_foot_index",
+        "right_foot_index"
+      ],
       "coordinateSystem": "normalized image coordinates",
       "persistedByDefault": false
     },
@@ -217,7 +414,15 @@
       "id": "world-pose-landmarks",
       "layer": "stage-1",
       "granularity": "landmark-per-frame",
-      "fields": ["index", "name", "x", "y", "z", "visibility", "trusted"],
+      "fields": [
+        "index",
+        "name",
+        "x",
+        "y",
+        "z",
+        "visibility",
+        "trusted"
+      ],
       "coordinateSystem": "MediaPipe model-relative world coordinates; not calibrated metric laboratory 3D",
       "persistedByDefault": false
     },
@@ -225,7 +430,16 @@
       "id": "pose-inference-telemetry",
       "layer": "stage-1",
       "granularity": "frame/runtime",
-      "fields": ["delegate", "cameraFps", "inferenceFps", "averageInferenceLatencyMs", "inferenceLatencyMs", "trustedLandmarkCount", "trustedFraction", "meanVisibility"],
+      "fields": [
+        "delegate",
+        "cameraFps",
+        "inferenceFps",
+        "averageInferenceLatencyMs",
+        "inferenceLatencyMs",
+        "trustedLandmarkCount",
+        "trustedFraction",
+        "meanVisibility"
+      ],
       "persistedByDefault": false,
       "modelUse": "measurement-quality only; never an injury predictor"
     },
@@ -233,8 +447,26 @@
       "id": "stage2-live-angle-reading",
       "layer": "stage-2",
       "granularity": "metric-per-frame",
-      "fields": ["angleName", "label", "rawValueDeg", "filteredValueDeg", "confidence", "timestampMs"],
-      "metrics": ["leftKneeFlexion", "rightKneeFlexion", "leftKneeFrontalDeviation", "rightKneeFrontalDeviation", "trunkLean", "pelvicLineObliquity", "leftShoulderElevation", "rightShoulderElevation", "leftElbowFlexion", "rightElbowFlexion"],
+      "fields": [
+        "angleName",
+        "label",
+        "rawValueDeg",
+        "filteredValueDeg",
+        "confidence",
+        "timestampMs"
+      ],
+      "metrics": [
+        "leftKneeFlexion",
+        "rightKneeFlexion",
+        "leftKneeFrontalDeviation",
+        "rightKneeFrontalDeviation",
+        "trunkLean",
+        "pelvicLineObliquity",
+        "leftShoulderElevation",
+        "rightShoulderElevation",
+        "leftElbowFlexion",
+        "rightElbowFlexion"
+      ],
       "filter": "One Euro",
       "persistedByDefault": "downsampled angle_samples only when persistence is enabled"
     },
@@ -242,150 +474,582 @@
       "id": "stage2-metric-summary",
       "layer": "stage-2",
       "granularity": "metric-per-session",
-      "fields": ["angleName", "label", "currentDeg", "rawCurrentDeg", "sessionMinDeg", "sessionMaxDeg", "sessionRangeDeg", "meanDeg", "meanConfidence", "samples"],
+      "fields": [
+        "angleName",
+        "label",
+        "currentDeg",
+        "rawCurrentDeg",
+        "sessionMinDeg",
+        "sessionMaxDeg",
+        "sessionRangeDeg",
+        "meanDeg",
+        "meanConfidence",
+        "samples"
+      ],
       "persistedByDefault": "rep/session summaries when persistence is enabled"
     },
     {
       "id": "stage2-rep-summary",
       "layer": "stage-2",
       "granularity": "rep",
-      "fields": ["repIndex", "startedMs", "endedMs", "durationMs", "excursionDegrees", "signalAngleName", "signalLabel", "peakTimestampMs", "outboundDurationMs", "returnDurationMs", "cadenceRpm", "angleSummary"],
+      "fields": [
+        "repIndex",
+        "startedMs",
+        "endedMs",
+        "durationMs",
+        "excursionDegrees",
+        "signalAngleName",
+        "signalLabel",
+        "peakTimestampMs",
+        "outboundDurationMs",
+        "returnDurationMs",
+        "cadenceRpm",
+        "angleSummary"
+      ],
       "persistedByDefault": "rep_summaries when persistence is enabled"
     },
     {
       "id": "stage2-consistency-summary",
       "layer": "stage-2",
       "granularity": "session",
-      "fields": ["repCount", "meanRepDurationMs", "meanCadenceRpm", "durationCoefficientOfVariationPct", "excursionCoefficientOfVariationPct"],
+      "fields": [
+        "repCount",
+        "meanRepDurationMs",
+        "meanCadenceRpm",
+        "durationCoefficientOfVariationPct",
+        "excursionCoefficientOfVariationPct"
+      ],
       "persistedByDefault": false
     },
     {
       "id": "stage3-reviewed-rule",
       "layer": "stage-3",
       "granularity": "rule",
-      "fields": ["id", "protocolId", "movement", "scope", "metric", "label", "comparator", "threshold", "min", "max", "severity", "sourceLabel", "sourceUrl", "sourceMeasurementMethod", "reviewedBy", "reviewedAt", "notes"],
+      "fields": [
+        "id",
+        "protocolId",
+        "movement",
+        "scope",
+        "metric",
+        "label",
+        "comparator",
+        "threshold",
+        "min",
+        "max",
+        "severity",
+        "sourceLabel",
+        "sourceUrl",
+        "sourceMeasurementMethod",
+        "reviewedBy",
+        "reviewedAt",
+        "notes"
+      ],
       "persistedByDefault": "analysis_config snapshot when Stage 4 persistence is enabled"
     },
     {
       "id": "stage3-review-flag",
       "layer": "stage-3",
       "granularity": "event",
-      "fields": ["id", "ruleId", "protocolId", "movement", "movementLabel", "scope", "metric", "label", "severity", "timestampMs", "repIndex", "measuredValue", "unit", "comparator", "threshold", "min", "max", "excess", "sourceLabel", "sourceUrl", "sourceMeasurementMethod", "reviewedBy", "reviewedAt", "interpretationBoundary"],
+      "fields": [
+        "id",
+        "ruleId",
+        "protocolId",
+        "movement",
+        "movementLabel",
+        "scope",
+        "metric",
+        "label",
+        "severity",
+        "timestampMs",
+        "repIndex",
+        "measuredValue",
+        "unit",
+        "comparator",
+        "threshold",
+        "min",
+        "max",
+        "excess",
+        "sourceLabel",
+        "sourceUrl",
+        "sourceMeasurementMethod",
+        "reviewedBy",
+        "reviewedAt",
+        "interpretationBoundary"
+      ],
       "persistedByDefault": "movement_flags when Stage 4 persistence is enabled"
     },
     {
       "id": "soccermon-daily-load",
       "layer": "external-source",
       "granularity": "participant-day",
-      "fields": ["date", "participant columns", "daily load value"],
+      "fields": [
+        "date",
+        "participant columns",
+        "daily load value"
+      ],
       "sourceFile": "daily_load.csv"
     },
     {
       "id": "soccermon-readiness",
       "layer": "external-source",
       "granularity": "participant-day",
-      "fields": ["date", "participant columns", "readiness value"],
+      "fields": [
+        "date",
+        "participant columns",
+        "readiness value"
+      ],
       "sourceFile": "readiness.csv"
     },
     {
       "id": "soccermon-sleep-quality",
       "layer": "external-source",
       "granularity": "participant-day",
-      "fields": ["date", "participant columns", "sleep quality value"],
+      "fields": [
+        "date",
+        "participant columns",
+        "sleep quality value"
+      ],
       "sourceFile": "sleep_quality.csv"
     },
     {
       "id": "soccermon-soreness",
       "layer": "external-source",
       "granularity": "participant-day",
-      "fields": ["date", "participant columns", "soreness value"],
+      "fields": [
+        "date",
+        "participant columns",
+        "soreness value"
+      ],
       "sourceFile": "soreness.csv"
     },
     {
       "id": "soccermon-injury-event",
       "layer": "external-source",
       "granularity": "injury-event",
-      "fields": ["participant_id", "injury_event_time", "injury_type", "source_row", "outcome_event_id"],
+      "fields": [
+        "participant_id",
+        "injury_event_time",
+        "injury_type",
+        "source_row",
+        "outcome_event_id"
+      ],
       "sourceFile": "injury.csv or injuries.csv"
     },
     {
       "id": "prospective-history-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["previous_injury_count", "days_since_last_injury"]
+      "fields": [
+        "previous_injury_count",
+        "days_since_last_injury"
+      ]
     },
     {
       "id": "prospective-symptoms-readiness-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["pain_score", "soreness_score", "sleep_quality_score", "readiness_score"]
+      "fields": [
+        "pain_score",
+        "soreness_score",
+        "sleep_quality_score",
+        "readiness_score"
+      ]
     },
     {
       "id": "prospective-training-exposure-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["training_minutes_7d", "training_minutes_28d", "session_rpe_load_7d", "session_rpe_load_28d", "high_speed_distance_7d", "high_speed_distance_28d"]
+      "fields": [
+        "training_minutes_7d",
+        "training_minutes_28d",
+        "session_rpe_load_7d",
+        "session_rpe_load_28d",
+        "high_speed_distance_7d",
+        "high_speed_distance_28d"
+      ]
     },
     {
       "id": "prospective-strength-balance-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["y_balance_asymmetry_cm", "knee_extensor_strength_norm", "hip_abductor_strength_norm"]
+      "fields": [
+        "y_balance_asymmetry_cm",
+        "knee_extensor_strength_norm",
+        "hip_abductor_strength_norm"
+      ]
     },
     {
       "id": "prospective-camera-biomechanics-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["left_sls_stable_knee_deg", "right_sls_stable_knee_deg", "sls_knee_asymmetry_deg", "left_sls_robust_peak_knee_deg", "right_sls_robust_peak_knee_deg", "sls_rep_variability_deg", "sls_robust_trunk_lean_deg", "mean_pose_confidence"],
-      "note": "mean_pose_confidence is measurement-quality metadata and should not be promoted to biological injury signal without explicit justification."
+      "fields": [
+        "left_sls_stable_knee_deg",
+        "right_sls_stable_knee_deg",
+        "sls_knee_asymmetry_deg",
+        "left_sls_robust_peak_knee_deg",
+        "right_sls_robust_peak_knee_deg",
+        "sls_rep_variability_deg",
+        "sls_robust_trunk_lean_deg",
+        "camera_knee_flexion_asymmetry_deg",
+        "camera_peak_knee_frontal_deviation_deg",
+        "camera_peak_trunk_lean_deg",
+        "camera_peak_pelvic_obliquity_deg",
+        "camera_rep_excursion_variability_deg",
+        "camera_rep_duration_cv_pct",
+        "mean_pose_confidence"
+      ],
+      "note": "Camera biomechanics may come from pre-specified single-leg protocols or MovementScienceLab MediaPipe movement signatures. Pose confidence is measurement-quality metadata and is excluded from strict injury prediction."
     },
     {
       "id": "prospective-longitudinal-change-domain",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["sls_knee_change_30d", "sls_asymmetry_change_30d", "training_minutes_change_28d", "pain_change_14d"]
+      "fields": [
+        "sls_knee_change_30d",
+        "sls_asymmetry_change_30d",
+        "training_minutes_change_28d",
+        "pain_change_14d"
+      ]
     },
     {
       "id": "prospective-outcome-and-timing",
       "layer": "research-ml",
       "granularity": "prediction-row",
-      "fields": ["participant_id", "injury_within_horizon", "index_time", "feature_cutoff_time", "outcome_window_end", "injury_event_time", "outcome_event_id", "sex", "age_group", "sport", "site_id"]
+      "fields": [
+        "participant_id",
+        "injury_within_horizon",
+        "index_time",
+        "feature_cutoff_time",
+        "outcome_window_end",
+        "injury_event_time",
+        "outcome_event_id",
+        "sex",
+        "age_group",
+        "sport",
+        "site_id"
+      ]
     },
     {
       "id": "movement-quality-feature-vector",
       "layer": "research-ml",
       "granularity": "rep/session feature vector",
-      "fields": ["left_knee_flexion_min", "left_knee_flexion_max", "left_knee_flexion_range", "right_knee_flexion_min", "right_knee_flexion_max", "right_knee_flexion_range", "peak_abs_left_knee_frontal_deviation", "peak_abs_right_knee_frontal_deviation", "peak_trunk_lean", "peak_abs_pelvic_line_obliquity", "left_shoulder_elevation_peak", "right_shoulder_elevation_peak", "knee_flexion_asymmetry", "shoulder_elevation_asymmetry", "rep_duration_ms", "mean_pose_confidence", "min_pose_confidence"]
+      "fields": [
+        "left_knee_flexion_min",
+        "left_knee_flexion_max",
+        "left_knee_flexion_range",
+        "right_knee_flexion_min",
+        "right_knee_flexion_max",
+        "right_knee_flexion_range",
+        "peak_abs_left_knee_frontal_deviation",
+        "peak_abs_right_knee_frontal_deviation",
+        "peak_trunk_lean",
+        "peak_abs_pelvic_line_obliquity",
+        "left_shoulder_elevation_peak",
+        "right_shoulder_elevation_peak",
+        "knee_flexion_asymmetry",
+        "shoulder_elevation_asymmetry",
+        "rep_duration_ms",
+        "mean_pose_confidence",
+        "min_pose_confidence"
+      ]
     }
   ],
   "evidenceSources": [
-    {"id": "ui-prmd-2018-deep-squat", "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/", "role": "movement-quality-protocol", "runtimeUse": "training-label-taxonomy", "transferability": "partial"},
-    {"id": "kimore-2019", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/31217121/", "role": "clinician-scored-rehabilitation-quality", "runtimeUse": "quality-regression-training", "transferability": "partial"},
-    {"id": "execheck-2025", "sourceUrl": "https://www.cs.bu.edu/faculty/betke/ExeChecker/", "role": "paired-correct-incorrect-rehabilitation", "runtimeUse": "deviation-classification-training", "transferability": "partial"},
-    {"id": "raisanen-2018-fpkpa", "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5783037/", "role": "prospective-injury-association", "runtimeUse": "research-only-association", "transferability": "not-yet-compatible"},
-    {"id": "nakagawa-2020-pfp", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32504961/", "role": "prospective-condition-association", "runtimeUse": "research-only-association", "transferability": "not-yet-compatible"},
-    {"id": "hewett-2005-acl", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/15722287/", "role": "prospective-injury-association", "runtimeUse": "research-only-context", "transferability": "incompatible"},
-    {"id": "nilstad-2020-meta-acl", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32819327/", "role": "systematic-review-meta-analysis", "runtimeUse": "certainty-constraint", "transferability": "high"},
-    {"id": "avci-2026-squat-review", "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/41927210/", "role": "systematic-review", "runtimeUse": "certainty-constraint", "transferability": "high"}
+    {
+      "id": "ui-prmd-2018-deep-squat",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5773117/",
+      "role": "movement-quality-protocol",
+      "runtimeUse": "training-label-taxonomy",
+      "transferability": "partial"
+    },
+    {
+      "id": "kimore-2019",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/31217121/",
+      "role": "clinician-scored-rehabilitation-quality",
+      "runtimeUse": "quality-regression-training",
+      "transferability": "partial"
+    },
+    {
+      "id": "execheck-2025",
+      "sourceUrl": "https://www.cs.bu.edu/faculty/betke/ExeChecker/",
+      "role": "paired-correct-incorrect-rehabilitation",
+      "runtimeUse": "deviation-classification-training",
+      "transferability": "partial"
+    },
+    {
+      "id": "raisanen-2018-fpkpa",
+      "sourceUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5783037/",
+      "role": "prospective-injury-association",
+      "runtimeUse": "research-only-association",
+      "transferability": "not-yet-compatible"
+    },
+    {
+      "id": "nakagawa-2020-pfp",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32504961/",
+      "role": "prospective-condition-association",
+      "runtimeUse": "research-only-association",
+      "transferability": "not-yet-compatible"
+    },
+    {
+      "id": "hewett-2005-acl",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/15722287/",
+      "role": "prospective-injury-association",
+      "runtimeUse": "research-only-context",
+      "transferability": "incompatible"
+    },
+    {
+      "id": "nilstad-2020-meta-acl",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/32819327/",
+      "role": "systematic-review-meta-analysis",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high"
+    },
+    {
+      "id": "avci-2026-squat-review",
+      "sourceUrl": "https://pubmed.ncbi.nlm.nih.gov/41927210/",
+      "role": "systematic-review",
+      "runtimeUse": "certainty-constraint",
+      "transferability": "high"
+    }
   ],
   "supabaseTables": [
-    {"name": "profiles", "fields": ["id", "role", "display_name", "created_at"], "containsPatientData": true},
-    {"name": "clinician_patient_access", "fields": ["clinician_id", "patient_id", "granted_at"], "containsPatientData": true},
-    {"name": "exercises", "fields": ["id", "slug", "name", "capture_view", "created_at"], "containsPatientData": false},
-    {"name": "movement_sessions", "fields": ["id", "user_id", "exercise_id", "status", "started_at", "ended_at", "capture_fps", "notes", "created_at", "capture_mode", "analysis_config", "measurement_version"], "containsPatientData": true},
-    {"name": "rep_summaries", "fields": ["id", "session_id", "rep_index", "started_ms", "ended_ms", "angle_summary", "form_deviation_score", "created_at"], "containsPatientData": true},
-    {"name": "angle_samples", "fields": ["id", "session_id", "frame_timestamp_ms", "angle_name", "value_degrees", "confidence", "created_at"], "containsPatientData": true},
-    {"name": "movement_flags", "fields": ["id", "session_id", "rep_index", "frame_timestamp_ms", "rule_id", "angle_name", "measured_value_degrees", "excess_degrees", "severity", "message", "source_label", "source_url", "created_at", "capture_view", "source_measurement_method", "measurement_version"], "containsPatientData": true},
-    {"name": "progress_baselines", "fields": ["id", "user_id", "compatibility_key", "metric_key", "angle_name", "baseline_strategy", "baseline_session_count", "baseline_session_ids", "baseline_mean", "baseline_median", "baseline_stddev", "baseline_start", "baseline_end", "measurement_version", "measurement_definition_version", "created_at", "updated_at"], "containsPatientData": true}
+    {
+      "name": "profiles",
+      "fields": [
+        "id",
+        "role",
+        "display_name",
+        "created_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "clinician_patient_access",
+      "fields": [
+        "clinician_id",
+        "patient_id",
+        "granted_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "exercises",
+      "fields": [
+        "id",
+        "slug",
+        "name",
+        "capture_view",
+        "created_at"
+      ],
+      "containsPatientData": false
+    },
+    {
+      "name": "movement_sessions",
+      "fields": [
+        "id",
+        "user_id",
+        "exercise_id",
+        "status",
+        "started_at",
+        "ended_at",
+        "capture_fps",
+        "notes",
+        "created_at",
+        "capture_mode",
+        "analysis_config",
+        "measurement_version"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "rep_summaries",
+      "fields": [
+        "id",
+        "session_id",
+        "rep_index",
+        "started_ms",
+        "ended_ms",
+        "angle_summary",
+        "form_deviation_score",
+        "created_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "angle_samples",
+      "fields": [
+        "id",
+        "session_id",
+        "frame_timestamp_ms",
+        "angle_name",
+        "value_degrees",
+        "confidence",
+        "created_at"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "movement_flags",
+      "fields": [
+        "id",
+        "session_id",
+        "rep_index",
+        "frame_timestamp_ms",
+        "rule_id",
+        "angle_name",
+        "measured_value_degrees",
+        "excess_degrees",
+        "severity",
+        "message",
+        "source_label",
+        "source_url",
+        "created_at",
+        "capture_view",
+        "source_measurement_method",
+        "measurement_version"
+      ],
+      "containsPatientData": true
+    },
+    {
+      "name": "progress_baselines",
+      "fields": [
+        "id",
+        "user_id",
+        "compatibility_key",
+        "metric_key",
+        "angle_name",
+        "baseline_strategy",
+        "baseline_session_count",
+        "baseline_session_ids",
+        "baseline_mean",
+        "baseline_median",
+        "baseline_stddev",
+        "baseline_start",
+        "baseline_end",
+        "measurement_version",
+        "measurement_definition_version",
+        "created_at",
+        "updated_at"
+      ],
+      "containsPatientData": true
+    }
   ],
   "matrix": [
-    {"sourceId": "mediapipe-live-webcam", "dataPieceIds": ["pose-frame-v1.1", "normalized-pose-landmarks", "world-pose-landmarks", "pose-inference-telemetry"], "stages": ["stage-1"], "uses": ["runtime-measurement", "webcam-domain-validation"]},
-    {"sourceId": "mediapipe-live-webcam", "dataPieceIds": ["stage2-live-angle-reading", "stage2-metric-summary", "stage2-rep-summary", "stage2-consistency-summary"], "stages": ["stage-2"], "uses": ["derived-movement-measurement"]},
-    {"sourceId": "stage3-reviewed-protocol", "dataPieceIds": ["stage3-reviewed-rule", "stage3-review-flag"], "stages": ["stage-3"], "uses": ["clinician-review-indicators"]},
-    {"sourceId": "ui-prmd", "dataPieceIds": ["movement-quality-feature-vector"], "stages": ["research-ml"], "uses": ["movement-quality-research", "feature-validation"]},
-    {"sourceId": "kimore", "dataPieceIds": ["movement-quality-feature-vector"], "stages": ["research-ml"], "uses": ["movement-quality-research", "clinical-domain-validation"]},
-    {"sourceId": "execheck", "dataPieceIds": ["movement-quality-feature-vector"], "stages": ["research-ml"], "uses": ["deviation-classification-research"]},
-    {"sourceId": "licensed-public-video-augmentation", "dataPieceIds": ["normalized-pose-landmarks"], "stages": ["research-ml"], "uses": ["camera-domain-augmentation-only"]},
-    {"sourceId": "soccermon", "dataPieceIds": ["soccermon-daily-load", "soccermon-readiness", "soccermon-sleep-quality", "soccermon-soreness", "soccermon-injury-event", "prospective-history-domain", "prospective-symptoms-readiness-domain", "prospective-training-exposure-domain", "prospective-outcome-and-timing"], "stages": ["research-ml"], "uses": ["prospective-reference-cohort", "timing-audit", "site-transport"]}
+    {
+      "sourceId": "mediapipe-live-webcam",
+      "dataPieceIds": [
+        "pose-frame-v1.1",
+        "normalized-pose-landmarks",
+        "world-pose-landmarks",
+        "pose-inference-telemetry"
+      ],
+      "stages": [
+        "stage-1"
+      ],
+      "uses": [
+        "runtime-measurement",
+        "webcam-domain-validation"
+      ]
+    },
+    {
+      "sourceId": "mediapipe-live-webcam",
+      "dataPieceIds": [
+        "stage2-live-angle-reading",
+        "stage2-metric-summary",
+        "stage2-rep-summary",
+        "stage2-consistency-summary"
+      ],
+      "stages": [
+        "stage-2"
+      ],
+      "uses": [
+        "derived-movement-measurement"
+      ]
+    },
+    {
+      "sourceId": "stage3-reviewed-protocol",
+      "dataPieceIds": [
+        "stage3-reviewed-rule",
+        "stage3-review-flag"
+      ],
+      "stages": [
+        "stage-3"
+      ],
+      "uses": [
+        "clinician-review-indicators"
+      ]
+    },
+    {
+      "sourceId": "ui-prmd",
+      "dataPieceIds": [
+        "movement-quality-feature-vector"
+      ],
+      "stages": [
+        "research-ml"
+      ],
+      "uses": [
+        "movement-quality-research",
+        "feature-validation"
+      ]
+    },
+    {
+      "sourceId": "kimore",
+      "dataPieceIds": [
+        "movement-quality-feature-vector"
+      ],
+      "stages": [
+        "research-ml"
+      ],
+      "uses": [
+        "movement-quality-research",
+        "clinical-domain-validation"
+      ]
+    },
+    {
+      "sourceId": "execheck",
+      "dataPieceIds": [
+        "movement-quality-feature-vector"
+      ],
+      "stages": [
+        "research-ml"
+      ],
+      "uses": [
+        "deviation-classification-research"
+      ]
+    },
+    {
+      "sourceId": "licensed-public-video-augmentation",
+      "dataPieceIds": [
+        "normalized-pose-landmarks"
+      ],
+      "stages": [
+        "research-ml"
+      ],
+      "uses": [
+        "camera-domain-augmentation-only"
+      ]
+    },
+    {
+      "sourceId": "soccermon",
+      "dataPieceIds": [
+        "soccermon-daily-load",
+        "soccermon-readiness",
+        "soccermon-sleep-quality",
+        "soccermon-soreness",
+        "soccermon-injury-event",
+        "prospective-history-domain",
+        "prospective-symptoms-readiness-domain",
+        "prospective-training-exposure-domain",
+        "prospective-outcome-and-timing"
+      ],
+      "stages": [
+        "research-ml"
+      ],
+      "uses": [
+        "prospective-reference-cohort",
+        "timing-audit",
+        "site-transport"
+      ]
+    }
   ]
 }
