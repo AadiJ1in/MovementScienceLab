@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXERCISES } from "../exercises/registry";
 import {
   MEASUREMENT_VALIDATION_REGISTRY,
   assertMeasurementValidationRegistryIntegrity,
@@ -21,10 +22,12 @@ const CURRENT_BROWSER_METRICS = [
 ] as const;
 
 describe("measurement validation registry", () => {
-  it("covers every current browser angle metric exactly once", () => {
+  it("covers every metric exposed by the current exercise registry exactly once", () => {
     expect(() => assertMeasurementValidationRegistryIntegrity()).not.toThrow();
-    const ids = MEASUREMENT_VALIDATION_REGISTRY.metrics.map((metric) => metric.id).sort();
-    expect(ids).toEqual([...CURRENT_BROWSER_METRICS].sort());
+    const registered = MEASUREMENT_VALIDATION_REGISTRY.metrics.map((metric) => metric.id).sort();
+    const exposed = [...new Set(EXERCISES.flatMap((exercise) => exercise.availableMetrics))].sort();
+    expect(registered).toEqual(exposed);
+    expect(registered).toEqual([...CURRENT_BROWSER_METRICS].sort());
   });
 
   it("does not manufacture empirical uncertainty before reference data exist", () => {
