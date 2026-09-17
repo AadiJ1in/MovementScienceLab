@@ -1,0 +1,76 @@
+name: Injury AI end-to-end integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "ml/prospective_injury_benchmark.py"
+      - "ml/train_prospective_injury_model.py"
+      - "ml/export_portable_injury_model.py"
+      - "ml/generate_synthetic_injury_fixture.py"
+      - "ml/feature_evidence_registry.py"
+      - "data/data-source-matrix.json"
+      - "data/injury-risk-demo-model.json"
+      - "lib/ai/injury-risk-engine.ts"
+      - "lib/ai/mediapipe-risk-features.ts"
+      - "components/research/InjuryRiskWorkbench.tsx"
+      - ".github/workflows/injury-ai-integration.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-end-to-end:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ml/requirements.txt
+
+      - name: Install research dependencies
+        run: python -m pip install -r ml/requirements.txt
+
+      - name: Generate prospective synthetic cohort
+        run: |
+          python ml/generate_synthetic_injury_fixture.py /tmp/injury-ai-fixture.csv             --participants 90             --windows-per-participant 4
+
+      - name: Run strict prospective training pipeline
+        run: |
+          python ml/train_prospective_injury_model.py             /tmp/injury-ai-fixture.csv             /tmp/injury-ai-research.json             /tmp/injury-ai-model.joblib             --protocol-json docs/synthetic-injury-ai-protocol.json             --horizon-days 28             --population "Synthetic multimodal athlete cohort for engineering integration tests only"             --cohort-id synthetic-injury-ai-ci-v1             --index-time-definition "Start of each non-overlapping synthetic 28-day prediction window"             --camera-measurement-version mediapipe-2d-v1             --bootstrap-samples 100             --minimum-total-participants 60             --minimum-positive-participants 12             --minimum-negative-participants 12             --sample-size-justification "Synthetic integration gate only; participant minimums are engineering test parameters and not a clinical sample-size claim."
+
+      - name: Export browser-portable transparent model
+        run: |
+          python ml/export_portable_injury_model.py             /tmp/injury-ai-model.joblib             /tmp/injury-ai-research.json             /tmp/injury-ai-portable.json             --source-label "Synthetic end-to-end integration cohort"             --training-data-type synthetic-development-fixture             --model-version synthetic-ci-v1
+
+      - name: Verify clinical claim remains disabled
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          artifact = json.loads(Path("/tmp/injury-ai-portable.json").read_text())
+          assert artifact["trainingDataType"] == "synthetic-development-fixture"
+          assert artifact["deploymentGate"]["eligibleForResearchRiskEstimate"] is False
+          assert artifact["deploymentGate"]["eligibleForUserFacingInjuryProbability"] is False
+          assert artifact["validation"]["participantGrouped"] is True
+          assert artifact["validation"]["nestedEvaluation"] is True
+          print(json.dumps({
+              "featureCount": len(artifact["features"]),
+              "participants": artifact["validation"]["nParticipants"],
+              "auroc": artifact["validation"]["auroc"],
+              "researchEstimateEnabled": artifact["deploymentGate"]["eligibleForResearchRiskEstimate"],
+          }, indent=2))
+          PY
+
+      - name: Upload integration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: injury-ai-synthetic-integration
+          retention-days: 14
+          path: |
+            /tmp/injury-ai-research.json
+            /tmp/injury-ai-portable.json
