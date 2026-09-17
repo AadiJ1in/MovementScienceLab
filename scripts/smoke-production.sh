@@ -6,7 +6,7 @@ BASE_URL="http://127.0.0.1:${PORT}"
 LOG_FILE="${TMPDIR:-/tmp}/movement-science-lab-next.log"
 HEALTH_FILE="${TMPDIR:-/tmp}/movement-science-lab-health.json"
 
-pnpm start -- -p "$PORT" >"$LOG_FILE" 2>&1 &
+pnpm exec next start -p "$PORT" >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 cleanup() {
@@ -21,6 +21,13 @@ for _ in {1..30}; do
     ready=1
     break
   fi
+
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "Production server exited before becoming healthy."
+    cat "$LOG_FILE"
+    exit 1
+  fi
+
   sleep 1
 done
 
