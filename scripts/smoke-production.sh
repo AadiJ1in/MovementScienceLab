@@ -5,6 +5,8 @@ PORT="${PORT:-3000}"
 BASE_URL="http://127.0.0.1:${PORT}"
 LOG_FILE="${TMPDIR:-/tmp}/movement-science-lab-next.log"
 HEALTH_FILE="${TMPDIR:-/tmp}/movement-science-lab-health.json"
+HEALTH_HEADERS_FILE="${TMPDIR:-/tmp}/movement-science-lab-health-headers.txt"
+PAGE_HEADERS_FILE="${TMPDIR:-/tmp}/movement-science-lab-page-headers.txt"
 
 pnpm exec next start -p "$PORT" >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
@@ -17,7 +19,7 @@ trap cleanup EXIT INT TERM
 
 ready=0
 for _ in {1..30}; do
-  if curl --fail --silent --show-error "$BASE_URL/api/health" >"$HEALTH_FILE"; then
+  if curl --fail --silent --show-error -D "$HEALTH_HEADERS_FILE" "$BASE_URL/api/health" >"$HEALTH_FILE"; then
     ready=1
     break
   fi
@@ -37,9 +39,17 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
-if ! grep -q '"ok":true' "$HEALTH_FILE"; then
-  echo "Health endpoint returned an unexpected payload."
-  cat "$HEALTH_FILE"
+for field in '"ok":true' '"service":"movement-science-lab"' '"provider":' '"release":'; do
+  if ! grep -q "$field" "$HEALTH_FILE"; then
+    echo "Health endpoint is missing expected field: $field"
+    cat "$HEALTH_FILE"
+    exit 1
+  fi
+done
+
+if ! grep -qi '^cache-control:.*no-store' "$HEALTH_HEADERS_FILE"; then
+  echo "Health endpoint must disable caching."
+  cat "$HEALTH_HEADERS_FILE"
   exit 1
 fi
 
@@ -60,5 +70,28 @@ for route in "${routes[@]}"; do
   fi
   echo "ok $route"
 done
+
+curl --fail --silent --show-error -D "$PAGE_HEADERS_FILE" -o /dev/null "$BASE_URL/"
+
+required_headers=(
+  '^x-content-type-options:[[:space:]]*nosniff'
+  '^x-frame-options:[[:space:]]*DENY'
+  '^referrer-policy:[[:space:]]*strict-origin-when-cross-origin'
+  '^permissions-policy:.*camera=\(self\)'
+)
+
+for pattern in "${required_headers[@]}"; do
+  if ! grep -Eqi "$pattern" "$PAGE_HEADERS_FILE"; then
+    echo "Missing required production security header matching: $pattern"
+    cat "$PAGE_HEADERS_FILE"
+    exit 1
+  fi
+done
+
+if grep -qi '^x-powered-by:' "$PAGE_HEADERS_FILE"; then
+  echo "Production response unexpectedly exposes X-Powered-By."
+  cat "$PAGE_HEADERS_FILE"
+  exit 1
+fi
 
 echo "Production smoke test passed."
