@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0.0",
+  "modelType": "portable-logistic-prospective-injury-risk",
+  "trainingDataType": "synthetic-development-fixture",
+  "clinicalClaim": "research-risk-estimation-only",
+  "modelName": "MovementScienceLab Multimodal Injury AI — synthetic wiring fixture",
+  "modelVersion": "demo-2026-09-17",
+  "outcome": {
+    "label": "injury_within_horizon",
+    "horizonDays": 28,
+    "population": "engineering demonstration only; no clinical population"
+  },
+  "cameraMeasurementVersion": "mediapipe-2d-v1",
+  "features": [
+    "previous_injury_count",
+    "days_since_last_injury",
+    "pain_score",
+    "soreness_score",
+    "sleep_quality_score",
+    "readiness_score",
+    "training_minutes_7d",
+    "training_minutes_28d",
+    "session_rpe_load_7d",
+    "session_rpe_load_28d",
+    "y_balance_asymmetry_cm",
+    "camera_knee_flexion_asymmetry_deg",
+    "camera_peak_knee_frontal_deviation_deg",
+    "camera_peak_trunk_lean_deg",
+    "camera_peak_pelvic_obliquity_deg",
+    "camera_rep_excursion_variability_deg",
+    "camera_rep_duration_cv_pct"
+  ],
+  "featureDomains": {
+    "previous_injury_count": "history",
+    "days_since_last_injury": "history",
+    "pain_score": "symptoms_readiness",
+    "soreness_score": "symptoms_readiness",
+    "sleep_quality_score": "symptoms_readiness",
+    "readiness_score": "symptoms_readiness",
+    "training_minutes_7d": "training_exposure",
+    "training_minutes_28d": "training_exposure",
+    "session_rpe_load_7d": "training_exposure",
+    "session_rpe_load_28d": "training_exposure",
+    "y_balance_asymmetry_cm": "strength_balance",
+    "camera_knee_flexion_asymmetry_deg": "camera_biomechanics",
+    "camera_peak_knee_frontal_deviation_deg": "camera_biomechanics",
+    "camera_peak_trunk_lean_deg": "camera_biomechanics",
+    "camera_peak_pelvic_obliquity_deg": "camera_biomechanics",
+    "camera_rep_excursion_variability_deg": "camera_biomechanics",
+    "camera_rep_duration_cv_pct": "camera_biomechanics"
+  },
+  "preprocessing": {
+    "medians": [1, 180, 2, 3, 7, 7, 240, 1000, 1200, 5000, 3, 4, 8, 12, 3, 3, 12],
+    "means": [1, 220, 2.5, 3.5, 7, 7, 260, 1050, 1300, 5200, 3.5, 4, 8, 12, 3, 3, 12],
+    "scales": [1, 180, 2.5, 2.5, 2, 2, 140, 400, 800, 2200, 3, 4, 6, 8, 3, 2.5, 8]
+  },
+  "model": {
+    "intercept": -0.55,
+    "coefficients": [0.55, -0.28, 0.48, 0.36, -0.24, -0.32, 0.34, -0.18, 0.38, -0.16, 0.24, 0.22, 0.26, 0.2, 0.16, 0.18, 0.2]
+  },
+  "calibration": {
+    "method": "platt-logistic",
+    "intercept": 0,
+    "coefficient": 1
+  },
+  "validation": {
+    "nParticipants": 0,
+    "nRows": 0,
+    "auroc": null,
+    "auprc": null,
+    "brier": null,
+    "calibrationSlope": null,
+    "calibrationIntercept": null,
+    "internalEngineeringGatePassed": false,
+    "participantGrouped": false,
+    "nestedEvaluation": false,
+    "externalValidated": false,
+    "cameraDomainValidated": false
+  },
+  "deploymentGate": {
+    "eligibleForResearchRiskEstimate": false,
+    "eligibleForUserFacingInjuryProbability": false,
+    "requiresIndependentExternalCohort": true,
+    "requiresSameCameraPoseDomainValidation": true,
+    "requiresClinicalGovernanceReview": true
+  },
+  "provenance": {
+    "sourceLabel": "Synthetic engineering fixture",
+    "sourceUrl": null,
+    "note": "Hand-authored deterministic parameters used only to test and demonstrate the complete feature-to-inference UI path. This artifact was not fit to patient or athlete injury outcomes."
+  }
+}
