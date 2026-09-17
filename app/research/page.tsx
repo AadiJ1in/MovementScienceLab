@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MovementAnalysisWorkspace } from "@/components/analysis/MovementAnalysisWorkspace";
 
 const TOOLS = [
+  { href: "/research/measurement-accuracy", title: "Measurement accuracy", text: "Audit MAE, RMSE, bias, limits of agreement, ICC, SEM, MDC95, device strata, and metric validation status." },
   { href: "/methodology", title: "Measurement methodology", text: "How camera-derived measurements and 2D projection proxies are calculated." },
   { href: "/validation", title: "Validation status", text: "What has been engineering-tested, internally validated, externally validated, or remains research-only." },
   { href: "/diagnostics", title: "Browser diagnostics", text: "Inspect browser, camera, and MediaPipe capability information." },
