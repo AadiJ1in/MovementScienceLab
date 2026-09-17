@@ -20,8 +20,10 @@ export type EmpiricalMeasurementUncertainty = {
   sdErrorDeg: number;
   lower95LimitOfAgreementDeg: number;
   upper95LimitOfAgreementDeg: number;
+  iccA1: number | null;
   semDeg: number | null;
   mdc95Deg: number | null;
+  deviceStrata?: string[];
   uncertaintyDisplayDeg: number;
   uncertaintyDisplayMethod: "mae" | "mdc95" | "half-limit-of-agreement-span";
 };
