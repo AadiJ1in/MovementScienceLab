@@ -32,10 +32,10 @@ const FEATURES = [
     href: "/validation",
   },
   {
-    eyebrow: "Research",
-    title: "Evidence remains traceable",
-    text: "Research associations retain their population, task, source, limitations, and claim boundary instead of becoming an invented injury probability.",
-    href: "/research",
+    eyebrow: "AI research",
+    title: "Multimodal injury-risk intelligence",
+    text: "Combine MediaPipe biomechanics with injury history, readiness, training exposure, and longitudinal research features in an explainable model pipeline.",
+    href: "/research/injury-risk-ai",
   },
   {
     eyebrow: "Progress",
@@ -67,15 +67,17 @@ export default function Home() {
             <div className="mt-5 flex flex-wrap gap-3">
               <Link href="/assessment" className="rounded-lg bg-zinc-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800">Run guided assessment</Link>
               <Link href="/camera-lab" className="rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-900 transition hover:border-zinc-500">Open motion capture lab</Link>
+              <Link href="/research/injury-risk-ai" className="rounded-lg border border-sky-700 bg-sky-50 px-5 py-3 text-sm font-semibold text-sky-800 transition hover:bg-sky-100">Open injury-risk AI</Link>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-px overflow-hidden rounded-2xl bg-zinc-200 ring-1 ring-zinc-200 sm:grid-cols-3">
+        <div className="grid gap-px overflow-hidden rounded-2xl bg-zinc-200 ring-1 ring-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ["Browser-local pose", "Camera frames stay in the assessment browser workflow."],
             ["Standardized protocol", "A paced five-rep workflow reduces avoidable capture variability."],
             ["Validation-aware metrics", "Tracking quality is separated from empirical measurement accuracy."],
+            ["Multimodal injury AI", "Research modeling can combine MediaPipe biomechanics with history, readiness, and training exposure."],
           ].map(([title, text]) => (
             <div key={title} className="bg-white px-5 py-4">
               <p className="text-sm font-semibold text-zinc-950">{title}</p>
