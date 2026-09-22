@@ -1,21 +1,39 @@
 """Fail-closed ACL model training entry point.
 
 A prospective ACL model should not be fitted merely because a CSV exists. This
-entry point requires an explicit fitting authorization, pre-specified participant
-minimums, and a written sample-size rationale before it runs either the nested
-classifier benchmark or the exposure-adjusted hazard candidate.
+entry point requires explicit fitting authorization, a frozen ordered predictor
+plan, pre-specified participant minimums, and a written sample-size rationale
+before it runs either the nested classifier benchmark or the exposure-adjusted
+hazard candidate.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
 from acl_exposure_hazard import grouped_hazard_evaluation
-from acl_injury_benchmark import TARGET, GROUP, benchmark_acl, validate_acl_dataset
+from acl_injury_benchmark import (
+    ACL_FEATURE_DOMAINS,
+    GROUP,
+    TARGET,
+    benchmark_acl,
+    validate_acl_dataset,
+)
+from acl_model_plan import load_and_validate_acl_model_plan
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def data_adequacy_report(
@@ -74,6 +92,26 @@ def data_adequacy_report(
     }
 
 
+def _modeling_frame(df: pd.DataFrame, selected_predictors: list[str]) -> pd.DataFrame:
+    all_candidates = {
+        feature
+        for features in ACL_FEATURE_DOMAINS.values()
+        for feature in features
+    }
+    missing = [feature for feature in selected_predictors if feature not in df.columns]
+    if missing:
+        raise ValueError(
+            "Frozen ACL model plan predictors are missing from the cohort: "
+            + ", ".join(missing)
+        )
+    to_drop = sorted(
+        feature
+        for feature in all_candidates
+        if feature in df.columns and feature not in selected_predictors
+    )
+    return df.drop(columns=to_drop)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Authorize, audit, fit, and evaluate ACL-only prospective research models."
@@ -81,6 +119,7 @@ def main() -> None:
     parser.add_argument("input_csv", type=Path)
     parser.add_argument("output_json", type=Path)
     parser.add_argument("output_model", type=Path)
+    parser.add_argument("--model-plan-json", type=Path, required=True)
     parser.add_argument("--adequacy-json", type=Path, default=None)
     parser.add_argument(
         "--training-data-type",
@@ -96,8 +135,17 @@ def main() -> None:
     parser.add_argument("--hazard-l2-penalty", type=float, default=1.0)
     args = parser.parse_args()
 
+    source_sha256 = _sha256(args.input_csv)
     df = pd.read_csv(args.input_csv)
-    features, _, cohort_audit = validate_acl_dataset(df)
+    _, _, cohort_audit = validate_acl_dataset(df)
+
+    plan = load_and_validate_acl_model_plan(args.model_plan_json)
+    if not plan["passed"]:
+        details = "\n".join(f"- {message}" for message in plan["errors"])
+        raise SystemExit(f"ACL model-plan validation failed:\n{details}")
+    selected_predictors = list(plan["selectedPredictors"])
+    modeling_df = _modeling_frame(df, selected_predictors)
+
     adequacy = data_adequacy_report(
         df,
         minimum_total_participants=args.minimum_total_participants,
@@ -107,6 +155,7 @@ def main() -> None:
         training_data_type=args.training_data_type,
     )
     adequacy["cohortAudit"] = cohort_audit
+    adequacy["modelPlan"] = plan
     adequacy["modelFittingAuthorized"] = bool(args.model_fitting_authorized)
     adequacy_path = args.adequacy_json or args.output_json.with_name(
         f"{args.output_json.stem}.adequacy.json"
@@ -125,22 +174,38 @@ def main() -> None:
     if args.bootstrap_samples < 100:
         raise SystemExit("--bootstrap-samples must be at least 100")
 
-    benchmark_acl(
-        args.input_csv,
-        args.output_json,
-        args.output_model,
-        bootstrap_samples=args.bootstrap_samples,
-    )
+    with TemporaryDirectory(prefix="acl-modeling-") as directory:
+        modeling_input = Path(directory) / "acl-frozen-modeling-input.csv"
+        modeling_df.to_csv(modeling_input, index=False)
+        benchmark_acl(
+            modeling_input,
+            args.output_json,
+            args.output_model,
+            bootstrap_samples=args.bootstrap_samples,
+        )
 
+    # The exposure itself is represented as E in the hazard equation and is not
+    # duplicated as a covariate even if a future fixed-horizon plan includes it.
+    hazard_features = [
+        feature
+        for feature in selected_predictors
+        if feature != "sport_exposure_hours_28d"
+    ]
     hazard = grouped_hazard_evaluation(
         df,
-        features=features,
+        features=hazard_features,
         target=TARGET,
         group=GROUP,
         exposure_column="sport_exposure_hours_28d",
         l2_penalty=args.hazard_l2_penalty,
     )
     report = json.loads(args.output_json.read_text(encoding="utf-8"))
+    actual_features = list(report["features"])
+    if set(actual_features) != set(selected_predictors):
+        raise RuntimeError(
+            "ACL benchmark feature set diverged from the frozen model plan. "
+            f"planned={selected_predictors!r}, actual={actual_features!r}"
+        )
     report["trainingAuthorization"] = {
         "trainingDataType": args.training_data_type,
         "modelFittingAuthorized": True,
@@ -149,7 +214,10 @@ def main() -> None:
         "observed": adequacy["observed"],
         "sampleSizeJustification": adequacy["sampleSizeJustification"],
     }
+    report["modelPlan"] = plan
     report["exposureAdjustedHazardModel"] = hazard
+    report["provenance"]["sourceInputSha256"] = source_sha256
+    report["provenance"]["modelPlanSha256"] = plan["planSha256"]
     report["deploymentGate"]["eligibleForUserFacingAclProbability"] = False
     report["deploymentGate"]["clinicalProbabilityLockedEvenWhenInternalModelsFit"] = True
     args.output_json.write_text(
