@@ -3,6 +3,8 @@ import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 export type CaptureView = "front" | "side";
 
 export type MovementType =
+  | "acl-landing-front"
+  | "acl-landing-side"
   | "squat-front"
   | "squat-side"
   | "push-up-side"
