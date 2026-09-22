@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-22",
+  "policy": {
+    "randomWebVideoScrapingAllowed": false,
+    "injuryOutcomeLabelsMustBeVerified": true,
+    "trainingUseRequiresRights": true,
+    "mechanismVideosCannotSubstituteForProspectivePredictionLabels": true
+  },
+  "sources": [
+    {
+      "id": "nd-jump-analysis",
+      "name": "Notre Dame Jump Analysis Video Dataset",
+      "role": "video-to-biomechanics-and-kinetics-method-development",
+      "status": "license-required-before-ingest",
+      "knownContent": "Multi-view evaluative jump video with force-plate data from female athletes.",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "landing event detection",
+        "2D/3D pose robustness",
+        "video-to-force surrogate research",
+        "jump biomechanics measurement validation"
+      ],
+      "reasonNotOutcomeTraining": "The dataset is useful for measurement learning but is not treated here as a prospective cohort with later ACL tear labels.",
+      "rightsRule": "Obtain the institutional dataset agreement before download or model training."
+    },
+    {
+      "id": "published-acl-injury-video-case-series",
+      "name": "Published ACL injury video case series",
+      "role": "mechanism-and-task-design-reference",
+      "status": "reference-only-unless-video-rights-obtained",
+      "knownContent": "Frame-by-frame ACL injury mechanism analyses in soccer and related sports.",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "identify injury-relevant movement phases",
+        "choose biomechanical measurements",
+        "design landing/cutting capture protocols"
+      ],
+      "reasonNotOutcomeTraining": "Case-only injury videos do not contain a matched prospective noninjured denominator or pre-injury baseline screening data.",
+      "rightsRule": "Do not download, redistribute, or train on broadcaster/Wyscout/Panini material without the applicable rights."
+    },
+    {
+      "id": "openpose-acl-risk-reference",
+      "name": "Assessment of ACL Injury Risk Based on OpenPose",
+      "role": "algorithm-reference",
+      "status": "public-code-reference",
+      "repository": "https://github.com/ZiyuGong-proj/Assessment-of-ACL-Injury-Risk-Based-on-Openpose",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "LESS-inspired feature-engineering comparison",
+        "historical computer-vision ACL-screening reference"
+      ],
+      "reasonNotOutcomeTraining": "The public repository provides heuristic/weighted assessment code, not a prospectively labelled ACL tear cohort."
+    },
+    {
+      "id": "user-or-partner-prospective-acl-cohort",
+      "name": "Future licensed prospective ACL cohort",
+      "role": "required-final-outcome-training-source",
+      "status": "not-yet-available",
+      "canTrainFutureAclProbabilityDirectly": true,
+      "requiredFields": [
+        "participant_id",
+        "index_time",
+        "feature_cutoff_time",
+        "outcome_window_end",
+        "acl_tear_within_horizon",
+        "acl_event_time",
+        "medical_confirmation",
+        "injury_mechanism",
+        "sport_exposure_hours",
+        "versioned_predictor_snapshot"
+      ]
+    }
+  ]
+}
