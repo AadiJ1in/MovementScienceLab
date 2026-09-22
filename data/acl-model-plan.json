@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "1.0.0",
+  "planId": "movement-science-lab-acl-primary-v1",
+  "planVersion": "1.0.0",
+  "specifiedBeforeProspectiveModelFitting": true,
+  "primaryOutcome": "medically confirmed future noncontact-or-indirect-contact ACL rupture",
+  "targetColumn": "acl_tear_within_horizon",
+  "participantColumn": "participant_id",
+  "exposureColumn": "sport_exposure_hours_28d",
+  "primaryPredictionHorizonDays": 28,
+  "primaryModelForm": "exposure-adjusted hazard: P = 1 - exp(-E * exp(beta0 + sum(beta_j*z_j)))",
+  "engineeringComparatorFamilies": [
+    "regularized_logistic_regression",
+    "random_forest",
+    "extra_trees"
+  ],
+  "predictorDomains": {
+    "acl_history": [
+      "prior_acl_rupture",
+      "prior_acl_reconstruction",
+      "days_since_last_acl_event"
+    ],
+    "strength": [
+      "hip_adductor_strength_norm",
+      "hip_abductor_strength_norm",
+      "hip_adductor_abductor_ratio",
+      "eccentric_knee_flexor_strength_norm"
+    ],
+    "jump_kinetics": [
+      "cmj_peak_takeoff_force_bw",
+      "peak_landing_force_bw",
+      "force_asymmetry_pct"
+    ],
+    "video_biomechanics": [
+      "dynamic_knee_valgus_deg",
+      "ipsilateral_trunk_flexion_deg",
+      "knee_flexion_at_initial_contact_deg",
+      "landing_knee_flexion_excursion_deg",
+      "hip_adduction_proxy_deg",
+      "interlimb_landing_asymmetry_deg",
+      "rep_to_rep_variability"
+    ],
+    "exposure_fatigue": [
+      "sport_exposure_hours_7d",
+      "sport_exposure_hours_28d",
+      "session_rpe_load_7d",
+      "session_rpe_load_28d",
+      "high_speed_distance_7d",
+      "deceleration_or_cut_exposures_7d",
+      "acute_fatigue_score"
+    ],
+    "longitudinal_change": [
+      "dynamic_knee_valgus_change_30d",
+      "trunk_flexion_change_30d",
+      "landing_asymmetry_change_30d",
+      "training_load_change_28d"
+    ]
+  },
+  "qualityOnlyNotBiologicalPredictors": [
+    "mean_pose_confidence",
+    "camera_measurement_frame_fraction",
+    "lighting_quality",
+    "image_sharpness",
+    "camera_fps"
+  ],
+  "requiredValidation": {
+    "splitUnit": "participant",
+    "nestedModelSelection": true,
+    "calibrationReported": true,
+    "participantClusteredUncertainty": true,
+    "temporalTransport": true,
+    "siteTransport": true,
+    "independentExternalValidationBeforeClinicalProbability": true,
+    "sameCameraMeasurementValidation": true
+  },
+  "fittingPolicy": {
+    "requiresExplicitAuthorization": true,
+    "requiresPreSpecifiedParticipantMinimums": true,
+    "requiresWrittenSampleSizeJustification": true,
+    "universalEventsPerPredictorRuleUsed": false,
+    "clinicalProbabilityDisplayAllowedByPlan": false
+  }
+}
