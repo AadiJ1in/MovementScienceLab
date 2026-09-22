@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "planId": "acl-synthetic-integration-v1",
+  "planVersion": "1.0.0",
+  "specifiedBeforeModelFitting": true,
+  "targetColumn": "acl_tear_within_horizon",
+  "participantColumn": "participant_id",
+  "exposureColumn": "sport_exposure_hours_28d",
+  "selectedPredictors": [
+    "prior_acl_rupture",
+    "days_since_last_acl_event",
+    "hip_adductor_abductor_ratio",
+    "eccentric_knee_flexor_strength_norm",
+    "cmj_peak_takeoff_force_bw",
+    "dynamic_knee_valgus_deg",
+    "ipsilateral_trunk_flexion_deg",
+    "knee_flexion_at_initial_contact_deg",
+    "deceleration_or_cut_exposures_7d",
+    "acute_fatigue_score"
+  ],
+  "modelFamilies": [
+    "logistic_regression",
+    "random_forest",
+    "extra_trees",
+    "exposure_adjusted_hazard"
+  ],
+  "predictorSelectionRationale": "Synthetic integration predictors were fixed before this workflow run to span prior ACL history, strength, jump kinetics, video biomechanics, and exposure/fatigue while keeping the test model compact enough to exercise grouped validation and the exposure-adjusted hazard implementation.",
+  "clinicalProbabilityDisplayAllowed": false,
+  "syntheticIntegrationOnly": true
+}
