@@ -5,6 +5,7 @@ on:
   pull_request:
     paths:
       - "ml/acl_*.py"
+      - "ml/train_acl_model.py"
       - "ml/generate_synthetic_acl_fixture.py"
       - "lib/acl/**"
       - "data/acl-*.json"
@@ -39,15 +40,21 @@ jobs:
             --participants 240 \
             --seed 20260922
 
-      - name: Train and evaluate ACL-only machine-learning candidates
+      - name: Run authorized ACL-only research training pipeline
         run: |
-          python ml/acl_injury_benchmark.py \
+          python ml/train_acl_model.py \
             /tmp/acl-fixture.csv \
             /tmp/acl-benchmark.json \
             /tmp/acl-model.joblib \
+            --training-data-type synthetic-development-fixture \
+            --minimum-total-participants 200 \
+            --minimum-positive-participants 10 \
+            --minimum-negative-participants 150 \
+            --sample-size-justification "Synthetic integration-only minimums test fail-closed participant counting and fitting authorization; they are not a clinical sample-size claim." \
+            --model-fitting-authorized \
             --bootstrap-samples 100
 
-      - name: Verify ACL outcome and clinical safeguards
+      - name: Verify ACL outcome, hazard model, and clinical safeguards
         run: |
           python - <<'PY'
           import json
@@ -58,6 +65,10 @@ jobs:
           assert report['aclCohortAudit']['directContactExcluded'] is True
           assert report['aclCohortAudit']['medicalConfirmationVerified'] is True
           assert report['modeling']['nestedParticipantGrouped'] is True
+          assert report['trainingAuthorization']['trainingDataType'] == 'synthetic-development-fixture'
+          assert report['trainingAuthorization']['modelFittingAuthorized'] is True
+          assert report['exposureAdjustedHazardModel']['splitUnit'] == 'participant'
+          assert report['exposureAdjustedHazardModel']['finalResearchModel']['eligibleForUserFacingAclProbability'] is False
           assert report['deploymentGate']['eligibleForUserFacingAclProbability'] is False
           assert report['validation']['externalValidated'] is False
           assert 'video_biomechanics' in report['featureDomains']
@@ -67,7 +78,8 @@ jobs:
               'participants': report['aclCohortAudit']['nParticipants'],
               'positiveParticipants': report['aclCohortAudit']['nPositiveParticipants'],
               'championFamily': report['modeling']['championFamily'],
-              'auroc': report['validation']['metrics']['auroc'],
+              'classifierAuroc': report['validation']['metrics']['auroc'],
+              'hazardAuroc': report['exposureAdjustedHazardModel']['outOfFoldMetrics']['auroc'],
               'clinicalProbabilityEnabled': report['deploymentGate']['eligibleForUserFacingAclProbability'],
               'syntheticIntegrationOnly': True,
           }, indent=2))
@@ -80,4 +92,5 @@ jobs:
           retention-days: 14
           path: |
             /tmp/acl-benchmark.json
+            /tmp/acl-benchmark.adequacy.json
             /tmp/acl-model.joblib
