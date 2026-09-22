@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-22",
+  "modelScope": "ACL-only",
+  "intendedUse": "research-risk-estimation-only",
+  "primaryOutcome": {
+    "name": "future noncontact-or-indirect-contact ACL rupture",
+    "label": "acl_tear_within_horizon",
+    "definition": "Complete anterior cruciate ligament rupture occurring after the prediction index within the prespecified risk horizon, medically confirmed and classified as noncontact or indirect contact by the adjudication protocol.",
+    "excludeFromPrimaryTarget": [
+      "direct-contact ACL rupture",
+      "suspected ACL injury without medical confirmation",
+      "injury occurring before or at the prediction index"
+    ],
+    "reasonForScope": "The initial model is intended to study modifiable intrinsic and movement-related susceptibility. Direct-contact trauma has a materially different causal mechanism and is not pooled into the primary biomechanical prediction target."
+  },
+  "recommendedPredictionDesign": {
+    "index": "standardized ACL screening assessment or weekly athlete checkpoint",
+    "riskHorizonDays": 28,
+    "exposureAdjusted": true,
+    "exposureUnit": "sport participation hours",
+    "mathematicalForm": "P(ACL within horizon) = 1 - exp(-E * exp(beta0 + sum(beta_j*z_j)))",
+    "notes": "The final beta coefficients and baseline scale must be estimated and calibrated from prospective ACL outcomes. Literature odds ratios may seed priors but cannot substitute for prospective fitting."
+  },
+  "criticalPredictorDomains": [
+    {
+      "id": "history",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "prior_acl_rupture",
+        "prior_acl_reconstruction",
+        "days_since_last_acl_event",
+        "injured_side_history"
+      ],
+      "measurement": "verified athlete/medical history"
+    },
+    {
+      "id": "video_biomechanics",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "dynamic_knee_valgus_deg",
+        "ipsilateral_trunk_flexion_deg",
+        "knee_flexion_at_initial_contact_deg",
+        "landing_knee_flexion_excursion_deg",
+        "hip_adduction_proxy_deg",
+        "interlimb_landing_asymmetry_deg",
+        "rep_to_rep_variability"
+      ],
+      "measurement": "standardized front/side landing or single-leg hop protocol with versioned MediaPipe-derived 2D measurements",
+      "limitations": "2D video is not interchangeable with laboratory 3D kinematics or kinetics. Every camera feature requires task-specific measurement validation."
+    },
+    {
+      "id": "strength",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "hip_adductor_strength_norm",
+        "hip_abductor_strength_norm",
+        "hip_adductor_abductor_ratio",
+        "eccentric_knee_flexor_strength_norm"
+      ],
+      "measurement": "dynamometry or another validated strength protocol",
+      "webcamCanMeasureDirectly": false
+    },
+    {
+      "id": "jump_kinetics",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "cmj_peak_takeoff_force_bw",
+        "peak_landing_force_bw",
+        "force_asymmetry_pct"
+      ],
+      "measurement": "force plate or independently validated video-to-kinetics surrogate",
+      "webcamCanMeasureDirectly": false
+    },
+    {
+      "id": "exposure_and_fatigue",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "sport_exposure_hours_7d",
+        "sport_exposure_hours_28d",
+        "session_rpe_load_7d",
+        "session_rpe_load_28d",
+        "high_speed_distance_7d",
+        "deceleration_or_cut_exposures_7d",
+        "acute_fatigue_state"
+      ],
+      "measurement": "training records, wearable/GPS when available, and prespecified self-report"
+    },
+    {
+      "id": "context",
+      "requiredForCompleteProfile": true,
+      "features": [
+        "sex",
+        "age",
+        "sport",
+        "competition_level",
+        "limb_dominance"
+      ],
+      "measurement": "participant metadata"
+    },
+    {
+      "id": "clinical_anatomy",
+      "requiredForCompleteProfile": false,
+      "features": [
+        "generalized_joint_laxity",
+        "knee_hyperextension",
+        "posterior_tibial_slope",
+        "intercondylar_notch_or_acl_morphology"
+      ],
+      "measurement": "clinical examination or imaging when available",
+      "webcamCanMeasureDirectly": false,
+      "notes": "Do not infer imaging/anatomic variables from ordinary webcam video."
+    }
+  ],
+  "measurementQualityOnly": [
+    "mean_pose_confidence",
+    "camera_measurement_frame_fraction",
+    "lighting_quality",
+    "image_sharpness",
+    "camera_fps"
+  ],
+  "measurementQualityPolicy": "Capture-quality variables may reject or stratify measurements but must not become biological ACL-risk predictors unless a future protocol provides a defensible causal/measurement rationale.",
+  "minimumValidationRequirements": [
+    "prospective future ACL outcome labels",
+    "exact injury event time",
+    "medical confirmation",
+    "mechanism adjudication separating noncontact/indirect from direct contact",
+    "participant-grouped internal validation",
+    "all model/feature/calibration decisions made within training folds",
+    "probability calibration",
+    "participant-level uncertainty intervals",
+    "subgroup robustness by sex/sport/site when sample size permits",
+    "same-camera measurement-domain validation",
+    "temporal and site transport testing",
+    "independent external validation before clinical probability display",
+    "clinical governance and utility evaluation"
+  ],
+  "clinicalClaimAllowedNow": false
+}
