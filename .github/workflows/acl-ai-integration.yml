@@ -46,6 +46,7 @@ jobs:
             /tmp/acl-fixture.csv \
             /tmp/acl-benchmark.json \
             /tmp/acl-model.joblib \
+            --model-plan-json data/acl-synthetic-integration-plan.json \
             --training-data-type synthetic-development-fixture \
             --minimum-total-participants 200 \
             --minimum-positive-participants 10 \
@@ -67,6 +68,7 @@ jobs:
           assert report['modeling']['nestedParticipantGrouped'] is True
           assert report['trainingAuthorization']['trainingDataType'] == 'synthetic-development-fixture'
           assert report['trainingAuthorization']['modelFittingAuthorized'] is True
+          assert report['modelPlan']['planId'] == 'acl-synthetic-integration-v1'
           assert report['exposureAdjustedHazardModel']['splitUnit'] == 'participant'
           assert report['exposureAdjustedHazardModel']['finalResearchModel']['eligibleForUserFacingAclProbability'] is False
           assert report['deploymentGate']['eligibleForUserFacingAclProbability'] is False
@@ -77,6 +79,7 @@ jobs:
           print(json.dumps({
               'participants': report['aclCohortAudit']['nParticipants'],
               'positiveParticipants': report['aclCohortAudit']['nPositiveParticipants'],
+              'plannedPredictors': len(report['modelPlan']['selectedPredictors']),
               'championFamily': report['modeling']['championFamily'],
               'classifierAuroc': report['validation']['metrics']['auroc'],
               'hazardAuroc': report['exposureAdjustedHazardModel']['outOfFoldMetrics']['auroc'],
