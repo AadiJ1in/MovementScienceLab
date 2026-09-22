@@ -1,11 +1,12 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "lastReviewed": "2026-09-22",
   "policy": {
     "randomWebVideoScrapingAllowed": false,
     "injuryOutcomeLabelsMustBeVerified": true,
     "trainingUseRequiresRights": true,
-    "mechanismVideosCannotSubstituteForProspectivePredictionLabels": true
+    "mechanismVideosCannotSubstituteForProspectivePredictionLabels": true,
+    "measurementTrainingSeparatedFromOutcomeTraining": true
   },
   "sources": [
     {
@@ -13,7 +14,8 @@
       "name": "Notre Dame Jump Analysis Video Dataset",
       "role": "video-to-biomechanics-and-kinetics-method-development",
       "status": "license-required-before-ingest",
-      "knownContent": "Multi-view evaluative jump video with force-plate data from female athletes.",
+      "knownContent": "89 female athletes, 582 evaluative jumps, three camera views per jump, force-plate data, and event keyframes.",
+      "source": "https://cvrl.nd.edu/projects/data/",
       "canTrainFutureAclProbabilityDirectly": false,
       "bestUse": [
         "landing event detection",
@@ -22,21 +24,56 @@
         "jump biomechanics measurement validation"
       ],
       "reasonNotOutcomeTraining": "The dataset is useful for measurement learning but is not treated here as a prospective cohort with later ACL tear labels.",
-      "rightsRule": "Obtain the institutional dataset agreement before download or model training."
+      "rightsRule": "Obtain and comply with the Notre Dame institutional dataset license before download or model training."
+    },
+    {
+      "id": "biocv",
+      "name": "BioCV Motion Capture Dataset",
+      "role": "markerless-video-measurement-validation",
+      "status": "access-on-request",
+      "knownContent": "15 participants with synchronized 9-camera 200 Hz video, optical motion capture, and force-plate data during walking, running, jumping, and hopping.",
+      "source": "https://doi.org/10.15125/BATH-01258",
+      "article": "https://doi.org/10.1038/s41597-024-04077-3",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "initial-contact event validation",
+        "video-to-3D kinematics validation",
+        "video-to-force surrogate research",
+        "camera-view robustness"
+      ],
+      "reasonNotOutcomeTraining": "Participants are not a prospective future ACL-injury cohort. The dataset validates measurement accuracy, not future tear probability.",
+      "rightsRule": "Data are access-on-request; agree to University of Bath participant-data terms before downloading or training."
+    },
+    {
+      "id": "acl-fatigue-jump-2025",
+      "name": "Motion capture data of six jump-landings, fatigued and non-fatigued, after ACL injury",
+      "role": "acl-specific-kinematics-force-feature-development",
+      "status": "open-cc-by-4.0",
+      "knownContent": "2,199 jump-landing trials from 43 participants (21 prior ACL injury, 22 healthy controls), including 3D motion capture, initial-contact events, joint-angle waveforms, and ground-reaction-force data across fatigued and non-fatigued conditions.",
+      "source": "https://doi.org/10.1038/s41597-025-05934-5",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "ACL-specific landing feature engineering",
+        "fatigue robustness research",
+        "initial-contact and early-landing phase validation",
+        "strengthening the measurement feature contract"
+      ],
+      "reasonNotOutcomeTraining": "The data compare prior-ACL and healthy groups and do not prospectively observe future ACL tears after a pre-injury screening index.",
+      "rightsRule": "CC BY 4.0; preserve attribution and dataset provenance."
     },
     {
       "id": "published-acl-injury-video-case-series",
       "name": "Published ACL injury video case series",
       "role": "mechanism-and-task-design-reference",
       "status": "reference-only-unless-video-rights-obtained",
-      "knownContent": "Frame-by-frame ACL injury mechanism analyses in soccer and related sports.",
+      "knownContent": "Frame-by-frame ACL injury mechanism analyses in soccer and related sports, commonly defining initial contact and the first 40-80 ms after contact.",
       "canTrainFutureAclProbabilityDirectly": false,
       "bestUse": [
         "identify injury-relevant movement phases",
         "choose biomechanical measurements",
         "design landing/cutting capture protocols"
       ],
-      "reasonNotOutcomeTraining": "Case-only injury videos do not contain a matched prospective noninjured denominator or pre-injury baseline screening data.",
+      "reasonNotOutcomeTraining": "Case-only injury videos do not contain a matched prospectively followed noninjured denominator or pre-injury baseline screening data.",
       "rightsRule": "Do not download, redistribute, or train on broadcaster/Wyscout/Panini material without the applicable rights."
     },
     {
