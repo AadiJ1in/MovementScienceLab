@@ -14,6 +14,12 @@ class AclLiteraturePrior:
 
 
 SOURCE = "Collings et al. Med Sci Sports Exerc. 2022;54(8):1242-1251. doi:10.1249/MSS.0000000000002908"
+REFERENCE_VALUES = {
+    "dynamic_knee_valgus_deg": 0.0,
+    "ipsilateral_trunk_flexion_deg": 8.0,
+    "cmj_peak_takeoff_force_bw": 1.19,
+    "hip_adductor_abductor_ratio": 0.97,
+}
 
 # These are conversions of reported prospective odds ratios into log-odds
 # reference slopes. They are NOT Movement Science Lab fitted coefficients and
@@ -58,14 +64,23 @@ ACL_LITERATURE_PRIORS: dict[str, AclLiteraturePrior] = {
 
 
 def literature_linear_predictor(values: dict[str, float | int]) -> float:
-    """Return a relative research signal, not an absolute ACL probability."""
-    return float(
-        sum(
-            ACL_LITERATURE_PRIORS[feature].log_odds_per_unit * float(values[feature])
-            for feature in ACL_LITERATURE_PRIORS
-            if feature in values
+    """Return a reference-centered ACL signal, not an absolute probability."""
+    eta = 0.0
+    if "prior_acl_rupture" in values:
+        eta += ACL_LITERATURE_PRIORS["prior_acl_rupture"].log_odds_per_unit * float(
+            values["prior_acl_rupture"]
         )
-    )
+    for feature in (
+        "dynamic_knee_valgus_deg",
+        "ipsilateral_trunk_flexion_deg",
+        "cmj_peak_takeoff_force_bw",
+        "hip_adductor_abductor_ratio",
+    ):
+        if feature in values:
+            eta += ACL_LITERATURE_PRIORS[feature].log_odds_per_unit * (
+                float(values[feature]) - REFERENCE_VALUES[feature]
+            )
+    return float(eta)
 
 
 def target_exposure_adjusted_hazard_probability(
