@@ -1,11 +1,13 @@
 {
-  "schemaVersion": "1.0.0",
-  "lastReviewed": "2026-09-22",
+  "schemaVersion": "1.1.0",
+  "lastReviewed": "2026-09-23",
   "policy": {
     "randomWebVideoScrapingAllowed": false,
     "injuryOutcomeLabelsMustBeVerified": true,
     "trainingUseRequiresRights": true,
-    "mechanismVideosCannotSubstituteForProspectivePredictionLabels": true
+    "mechanismVideosCannotSubstituteForProspectivePredictionLabels": true,
+    "publicAvailabilityDoesNotImplyTrainingRights": true,
+    "caseOnlyInjuryVideoCannotEstimateFutureRisk": true
   },
   "sources": [
     {
@@ -40,6 +42,49 @@
       "rightsRule": "Do not download, redistribute, or train on broadcaster/Wyscout/Panini material without the applicable rights."
     },
     {
+      "id": "video-mechanism-systematic-review-2025",
+      "name": "Systematic review of video-based ACL injury mechanisms across sports",
+      "role": "mechanism-feature-selection-reference",
+      "status": "published-reference",
+      "pmid": "40690162",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "select cutting, landing, deceleration and contact-context tasks",
+        "choose temporal windows around foot strike and early stance",
+        "define mechanism annotation taxonomy"
+      ],
+      "reasonNotOutcomeTraining": "A synthesis of injury situations describes how ACL injuries occur, not who will sustain a future injury before it happens."
+    },
+    {
+      "id": "secondary-cutting-cohort-2024",
+      "name": "Prospective secondary ACL cutting biomechanics cohort",
+      "role": "secondary-acl-evidence-boundary",
+      "status": "published-reference",
+      "pmid": "38459717",
+      "doi": "10.1177/03635465241234255",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "justify separate secondary ACL model",
+        "avoid assuming primary-risk biomechanics transfer after ACL reconstruction"
+      ],
+      "reasonNotOutcomeTraining": "The published article informs model design; individual-level licensed data are not bundled in this repository."
+    },
+    {
+      "id": "jauhiainen-ml-2022",
+      "name": "Prospective ACL machine-learning screening benchmark",
+      "role": "performance-reality-check",
+      "status": "published-reference",
+      "pmid": "35984748",
+      "doi": "10.1177/03635465221112095",
+      "canTrainFutureAclProbabilityDirectly": false,
+      "bestUse": [
+        "benchmark expectations",
+        "guard against overfitting claims",
+        "motivate repeated participant-grouped evaluation"
+      ],
+      "reasonNotOutcomeTraining": "Published aggregate results are evidence context, not redistributable participant-level model-training data."
+    },
+    {
       "id": "openpose-acl-risk-reference",
       "name": "Assessment of ACL Injury Risk Based on OpenPose",
       "role": "algorithm-reference",
@@ -68,7 +113,10 @@
         "medical_confirmation",
         "injury_mechanism",
         "sport_exposure_hours",
-        "versioned_predictor_snapshot"
+        "versioned_predictor_snapshot",
+        "prior_acl_rupture",
+        "prior_acl_reconstruction",
+        "injured_side_history"
       ]
     }
   ]

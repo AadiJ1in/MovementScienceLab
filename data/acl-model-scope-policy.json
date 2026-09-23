@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-23",
+  "policy": {
+    "singlePooledPrimaryAndSecondaryEquationAllowed": false,
+    "firstTimeAndSecondaryModelsMustBeFitSeparately": true,
+    "internetMechanismVideosCanBeProspectiveOutcomeLabels": false,
+    "clinicalProbabilityAllowedNow": false
+  },
+  "firstTimeAclModel": {
+    "populationRule": "No ACL rupture or ACL reconstruction before the prediction index.",
+    "outcome": "Future medically confirmed noncontact or indirect-contact first ACL rupture within the pre-specified horizon.",
+    "rationale": "First-time ACL studies evaluate pre-injury intrinsic, neuromuscular, biomechanical, strength, and exposure factors in previously ACL-uninjured athletes.",
+    "evidence": [
+      {
+        "pmid": "33961066",
+        "role": "prospective first-time ACL cohort",
+        "note": "Adolescent female elite football/handball athletes without previous ACL injury; candidate factors included hip flexion at initial contact, internal knee rotation, semitendinosus preactivation, and external hip rotator strength."
+      },
+      {
+        "pmid": "36154754",
+        "role": "prospective intrinsic first-time ACL cohort",
+        "note": "Parental ACL history, body weight, anterior tibial displacement, genu recurvatum, and generalized joint laxity were associated with first-time noncontact ACL injury in both sexes; additional factors differed by sex."
+      },
+      {
+        "pmid": "35320148",
+        "role": "prospective field-based noncontact ACL cohort",
+        "note": "Elite female footballers; reported associations included prior ACL history, dynamic knee valgus, ipsilateral trunk flexion, CMJ peak take-off force, and hip adductor:abductor strength ratio. Use as literature context, not universal coefficients."
+      }
+    ]
+  },
+  "secondaryAclModel": {
+    "populationRule": "Documented ACL rupture or reconstruction before the prediction index.",
+    "outcome": "Future medically confirmed ipsilateral graft or contralateral noncontact/indirect-contact ACL injury within the pre-specified horizon, with side recorded.",
+    "rationale": "Post-ACL-reconstruction biomechanics, rehabilitation, graft status, time since surgery, return-to-sport exposure, and contralateral risk make this a different prediction problem.",
+    "evidence": [
+      {
+        "pmid": "38459717",
+        "role": "prospective secondary ACL cutting cohort",
+        "note": "In 756 elite female handball/soccer players, knee biomechanics differed after ACL injury, but the seven knee-specific cutting variables were not associated with future secondary ACL injury in the previously injured group."
+      }
+    ]
+  },
+  "performanceRealityCheck": {
+    "pmid": "35984748",
+    "note": "An extensive 3D motion-analysis and physical screening battery in 791 elite female handball/soccer players with 60 ACL injuries achieved mean AUROC 0.63 for the best classifier, with substantial repetition variability. Webcam ML should not be assumed to outperform this without evidence."
+  },
+  "kamSurrogateBoundary": {
+    "pmidDevelopment": "20595554",
+    "pmidAclFollowup": "22879400",
+    "note": "Clinic measures can predict high knee-abduction-moment status, but a KAM-surrogate equation is not itself an ACL-tear probability equation. The later prospective ACL analysis did not establish pKAM as a direct ACL injury predictor."
+  }
+}

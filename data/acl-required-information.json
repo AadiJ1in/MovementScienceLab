@@ -1,0 +1,165 @@
+{
+  "schemaVersion": "1.0.0",
+  "lastReviewed": "2026-09-23",
+  "purpose": "Minimum information contract for developing and evaluating an ACL-specific prospective prediction model. This is a research data contract, not a clinical diagnostic checklist.",
+  "outcome": {
+    "required": true,
+    "fields": [
+      "acl_tear_within_horizon",
+      "acl_event_time",
+      "medical_confirmation",
+      "injury_mechanism",
+      "injured_side",
+      "outcome_window_end"
+    ],
+    "rules": [
+      "Outcome must occur after the prediction index.",
+      "Primary model includes medically confirmed noncontact or indirect-contact ACL tears only.",
+      "Direct-contact tears are analyzed separately rather than mixed into the biomechanical target."
+    ]
+  },
+  "cohortScope": {
+    "required": true,
+    "fields": [
+      "prior_acl_rupture",
+      "prior_acl_reconstruction",
+      "days_since_last_acl_event",
+      "injured_side_history"
+    ],
+    "rules": [
+      "Fit first-time ACL and secondary ACL models separately.",
+      "Do not allow one pooled model to use prior ACL history as a shortcut for two biologically different prediction questions."
+    ]
+  },
+  "context": {
+    "required": true,
+    "fields": [
+      "sex",
+      "age",
+      "sport",
+      "competition_level",
+      "limb_dominance",
+      "site_id"
+    ],
+    "reason": "Risk-factor associations and measurement distributions can differ across sex, sport, age, competition level, and site; these variables are also needed for subgroup and transport audits."
+  },
+  "videoBiomechanics": {
+    "requiredForCameraModel": true,
+    "protocol": [
+      "standardized front-view landing/cutting task",
+      "standardized side-view landing/cutting task",
+      "fixed camera placement and distance",
+      "versioned MediaPipe/pose model",
+      "multiple repetitions rather than one uncontrolled trial"
+    ],
+    "candidateFields": [
+      "dynamic_knee_valgus_deg",
+      "ipsilateral_trunk_flexion_deg",
+      "knee_flexion_at_initial_contact_deg",
+      "landing_knee_flexion_excursion_deg",
+      "hip_adduction_proxy_deg",
+      "interlimb_landing_asymmetry_deg",
+      "rep_to_rep_variability"
+    ],
+    "qualityOnly": [
+      "mean_pose_confidence",
+      "camera_measurement_frame_fraction",
+      "lighting_quality",
+      "image_sharpness",
+      "camera_fps"
+    ],
+    "notDirectlyMeasurableFromOrdinaryMonocularWebcam": [
+      "knee_abduction_moment",
+      "ground_reaction_force",
+      "ACL strain",
+      "internal_knee_rotation_moment",
+      "true 3D joint angles"
+    ]
+  },
+  "strengthNeuromuscular": {
+    "requiredForCompleteMultimodalProfile": true,
+    "candidateFields": [
+      "hip_adductor_strength_norm",
+      "hip_abductor_strength_norm",
+      "hip_adductor_abductor_ratio",
+      "eccentric_knee_flexor_strength_norm",
+      "external_hip_rotator_strength_norm"
+    ],
+    "preferredMeasurement": "standardized dynamometry or another validated strength protocol",
+    "webcamReplacementAllowedWithoutValidation": false
+  },
+  "kinetics": {
+    "requiredForCompleteMultimodalProfile": true,
+    "candidateFields": [
+      "cmj_peak_takeoff_force_bw",
+      "peak_landing_force_bw",
+      "force_asymmetry_pct"
+    ],
+    "preferredMeasurement": "force plate",
+    "videoSurrogateAllowed": "only after independent agreement/validation against force-plate measurements in the exact capture protocol"
+  },
+  "exposureFatigue": {
+    "required": true,
+    "candidateFields": [
+      "sport_exposure_hours_7d",
+      "sport_exposure_hours_28d",
+      "session_rpe_load_7d",
+      "session_rpe_load_28d",
+      "high_speed_distance_7d",
+      "deceleration_or_cut_exposures_7d",
+      "acute_fatigue_score"
+    ]
+  },
+  "intrinsicClinical": {
+    "required": false,
+    "candidateFields": [
+      "parental_or_first_degree_acl_history",
+      "body_mass_kg",
+      "generalized_joint_laxity",
+      "genu_recurvatum_deg",
+      "anterior_tibial_displacement_mm",
+      "knee_hyperextension_deg",
+      "posterior_tibial_slope_deg",
+      "intercondylar_notch_or_acl_morphology"
+    ],
+    "webcamCanInferImagingAnatomy": false
+  },
+  "cuttingNeuromuscularLabOptional": {
+    "required": false,
+    "candidateFields": [
+      "hip_flexion_at_initial_contact_deg",
+      "internal_knee_rotation_at_initial_contact_deg",
+      "semitendinosus_preactivation_emg",
+      "external_hip_rotator_strength_norm"
+    ],
+    "note": "Some candidate first-time ACL associations come from laboratory 3D/EMG protocols and should not be silently replaced by 2D webcam proxies."
+  },
+  "timingAndLeakage": {
+    "required": true,
+    "fields": [
+      "participant_id",
+      "index_time",
+      "feature_cutoff_time",
+      "outcome_window_end",
+      "acl_event_time",
+      "outcome_event_id"
+    ],
+    "rule": "Every predictor must be available at or before index_time; model/feature/calibration decisions must be made without access to held-out participant outcomes."
+  },
+  "validation": {
+    "requiredBeforeResearchEstimate": [
+      "participant-grouped internal validation",
+      "nested model and preprocessing selection",
+      "probability calibration",
+      "participant-cluster uncertainty intervals",
+      "subgroup audits when sample size permits"
+    ],
+    "requiredBeforeClinicalProbability": [
+      "same-camera measurement-domain validation",
+      "temporal transport",
+      "site transport",
+      "independent external validation",
+      "clinical governance and utility evaluation"
+    ]
+  }
+}
