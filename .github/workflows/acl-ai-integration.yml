@@ -22,7 +22,7 @@ concurrency:
 jobs:
   acl-only-research-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,39 +36,61 @@ jobs:
       - name: Generate ACL-only synthetic integration cohort
         run: |
           python ml/generate_synthetic_acl_fixture.py /tmp/acl-fixture.csv \
-            --participants 240 \
-            --seed 20260922
+            --participants 600 \
+            --seed 20260923
 
-      - name: Train and evaluate ACL-only machine-learning candidates
+      - name: Split first-time and secondary ACL prediction cohorts before fitting
+        run: |
+          python ml/acl_cohort_scope.py /tmp/acl-fixture.csv /tmp/acl-first-time.csv /tmp/acl-first-time-scope.json --scope first-time
+          python ml/acl_cohort_scope.py /tmp/acl-fixture.csv /tmp/acl-secondary.csv /tmp/acl-secondary-scope.json --scope secondary
+
+      - name: Train first-time ACL machine-learning candidates
         run: |
           python ml/acl_injury_benchmark.py \
-            /tmp/acl-fixture.csv \
-            /tmp/acl-benchmark.json \
-            /tmp/acl-model.joblib \
+            /tmp/acl-first-time.csv \
+            /tmp/acl-first-time-benchmark.json \
+            /tmp/acl-first-time-model.joblib \
             --bootstrap-samples 100
 
-      - name: Verify ACL outcome and clinical safeguards
+      - name: Train secondary ACL machine-learning candidates independently
+        run: |
+          python ml/acl_injury_benchmark.py \
+            /tmp/acl-secondary.csv \
+            /tmp/acl-secondary-benchmark.json \
+            /tmp/acl-secondary-model.joblib \
+            --bootstrap-samples 100
+
+      - name: Verify ACL outcome, cohort separation, and clinical safeguards
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
 
-          report = json.loads(Path('/tmp/acl-benchmark.json').read_text())
-          assert report['target'] == 'acl_tear_within_horizon'
-          assert report['aclCohortAudit']['directContactExcluded'] is True
-          assert report['aclCohortAudit']['medicalConfirmationVerified'] is True
-          assert report['modeling']['nestedParticipantGrouped'] is True
-          assert report['deploymentGate']['eligibleForUserFacingAclProbability'] is False
-          assert report['validation']['externalValidated'] is False
-          assert 'video_biomechanics' in report['featureDomains']
-          assert 'acl_history' in report['featureDomains']
-          assert 'exposure_fatigue' in report['featureDomains']
+          first_scope = json.loads(Path('/tmp/acl-first-time-scope.json').read_text())
+          secondary_scope = json.loads(Path('/tmp/acl-secondary-scope.json').read_text())
+          assert first_scope['scope'] == 'first-time'
+          assert secondary_scope['scope'] == 'secondary'
+          assert first_scope['pooledPrimaryAndSecondaryEquationAllowed'] is False
+          assert secondary_scope['pooledPrimaryAndSecondaryEquationAllowed'] is False
+
+          for path in ('/tmp/acl-first-time-benchmark.json', '/tmp/acl-secondary-benchmark.json'):
+              report = json.loads(Path(path).read_text())
+              assert report['target'] == 'acl_tear_within_horizon'
+              assert report['aclCohortAudit']['directContactExcluded'] is True
+              assert report['aclCohortAudit']['medicalConfirmationVerified'] is True
+              assert report['modeling']['nestedParticipantGrouped'] is True
+              assert report['deploymentGate']['eligibleForUserFacingAclProbability'] is False
+              assert report['validation']['externalValidated'] is False
+              assert 'video_biomechanics' in report['featureDomains']
+              assert 'exposure_fatigue' in report['featureDomains']
+
           print(json.dumps({
-              'participants': report['aclCohortAudit']['nParticipants'],
-              'positiveParticipants': report['aclCohortAudit']['nPositiveParticipants'],
-              'championFamily': report['modeling']['championFamily'],
-              'auroc': report['validation']['metrics']['auroc'],
-              'clinicalProbabilityEnabled': report['deploymentGate']['eligibleForUserFacingAclProbability'],
+              'firstTimeParticipants': first_scope['nParticipants'],
+              'firstTimeAclEvents': first_scope['nParticipantsWithFutureAclEvent'],
+              'secondaryParticipants': secondary_scope['nParticipants'],
+              'secondaryAclEvents': secondary_scope['nParticipantsWithFutureAclEvent'],
+              'pooledEquationAllowed': False,
+              'clinicalProbabilityEnabled': False,
               'syntheticIntegrationOnly': True,
           }, indent=2))
           PY
@@ -79,5 +101,9 @@ jobs:
           name: acl-only-synthetic-integration
           retention-days: 14
           path: |
-            /tmp/acl-benchmark.json
-            /tmp/acl-model.joblib
+            /tmp/acl-first-time-scope.json
+            /tmp/acl-secondary-scope.json
+            /tmp/acl-first-time-benchmark.json
+            /tmp/acl-secondary-benchmark.json
+            /tmp/acl-first-time-model.joblib
+            /tmp/acl-secondary-model.joblib
